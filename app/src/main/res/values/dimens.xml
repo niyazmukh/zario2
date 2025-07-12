@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- ======================================== -->
+    <!-- UNIFIED SPACING SYSTEM (4dp grid) -->
+    <!-- ======================================== -->
+    <!-- 
+    IMPORTANT: This is the ONLY source of truth for layout spacing.
+    
+    USAGE RULES:
+    - ALWAYS use these semantic spacing constants in layouts
+    - NEVER use hardcoded dimensions (16dp, 24dp, etc.)
+    - NEVER put layout dimensions in Constants.kt
+    
+    SPACING HIERARCHY:
+    - spacing_xs (4dp): Tiny gaps, icon padding, text spacing
+    - spacing_sm (8dp): Small gaps, text padding, minor spacing
+    - spacing_md (16dp): Standard gaps, card padding, content spacing
+    - spacing_lg (24dp): Large gaps, screen padding, major spacing
+    - spacing_xl (32dp): Extra large, section spacing, title margins
+    - spacing_xxl (48dp): Maximum spacing, title margins, screen edges
+    
+    COMPONENT DIMENSIONS:
+    - Use semantic names (button_height_primary, icon_size_standard)
+    - Only create new ones for unique values
+    - Reuse existing ones when possible
+    -->
+    <dimen name="spacing_xs">4dp</dimen>    <!-- Tiny gaps, icon padding -->
+    <dimen name="spacing_sm">8dp</dimen>    <!-- Small gaps, text padding -->
+    <dimen name="spacing_md">16dp</dimen>   <!-- Standard gaps, card padding -->
+    <dimen name="spacing_lg">24dp</dimen>   <!-- Large gaps, screen padding -->
+    <dimen name="spacing_xl">32dp</dimen>   <!-- Extra large, section spacing -->
+    <dimen name="spacing_xxl">48dp</dimen>  <!-- Maximum spacing, title margins -->
+    
+    <!-- Component Dimensions (unique values only) -->
+    <!-- 
+    COMPONENT DIMENSION RULES:
+    - Only create new dimensions for unique values
+    - Use semantic names that describe the component
+    - Reuse existing dimensions when possible
+    - These are NOT spacing - they are component sizes
+    -->
+    <dimen name="button_height_primary">56dp</dimen>
+    <dimen name="button_height_secondary">52dp</dimen>
+    <dimen name="button_height_small">36dp</dimen>
+    <dimen name="button_width_small">80dp</dimen>
+    <dimen name="icon_size_standard">48dp</dimen>
+    <dimen name="icon_size_small">36dp</dimen>
+    <dimen name="card_elevation">0dp</dimen>
+    <dimen name="card_corner_radius">4dp</dimen>
+    <dimen name="card_stroke_width">1dp</dimen>
+    <dimen name="progress_track_thickness">8dp</dimen>
+    <dimen name="progress_indicator_size">200dp</dimen>
+    <dimen name="menu_button_size">48dp</dimen>
+    <dimen name="slider_label_min_width">24dp</dimen>
+
+
+</resources> 

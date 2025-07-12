@@ -1,0 +1,155 @@
+# The Ultimate Android Development Framework
+
+## The One Rule That Matters
+
+**Ship working software that users love, as fast as possible, with the least amount of code.**
+
+Everything else is commentary.
+
+## The Three Questions That Replace All Other Rules
+
+Before writing any code, ask:
+
+1. **Will this make the app faster or slower for users?**
+2. **Will this make the codebase easier or harder to debug?**
+3. **Will this help or hurt when I need to change this code in 6 months?**
+
+If you can't answer these questions, you're not ready to code.
+
+## The Five Deadly Sins of Android Development
+
+Avoid these at all costs:
+
+### 1. Architecture Astronauting
+- **Don't**: Build elaborate abstractions for simple problems
+- **Do**: Use the simplest thing that works, refactor when you actually need to
+
+### 2. Dependency Addiction
+- **Don't**: Add libraries for problems you can solve in 20 lines
+- **Do**: Prefer platform APIs, add dependencies only when they solve real pain
+
+### 3. Premature Optimization
+- **Don't**: Optimize for theoretical performance problems
+- **Do**: Measure first, optimize bottlenecks, verify improvements
+
+### 4. Feature Creep
+- **Don't**: Add features because you can
+- **Do**: Add features because users need them (and prove it with data)
+
+### 5. Cargo Cult Development
+- **Don't**: Copy patterns from blog posts without understanding them
+- **Do**: Understand the problem before applying the solution
+
+## The Hierarchy of Concerns
+
+Priority order (never compromise a higher priority for a lower one):
+
+1. **App works** - Doesn't crash, basic functionality intact
+2. **App is fast** - Starts quickly, responds to user input
+3. **App is small** - Downloads fast, doesn't fill up storage
+4. **Code is debuggable** - You can fix bugs quickly
+5. **Code is readable** - New team members can contribute
+6. **Code is "clean"** - Follows patterns and conventions
+
+## The Technology Stack Reality Check
+
+### What to Use (and Why)
+- **Kotlin**: Because Java is dead and Kotlin is the platform standard
+- **Compose**: For new UI work, because View system is legacy
+- **Coroutines**: For async work, because callbacks are hell
+- **Room**: For local data, because SQLite is too low-level
+- **Hilt**: For DI, because manual DI doesn't scale
+- **Retrofit**: For networking, because you're not building HTTP clients
+
+### What NOT to Use (and Why)
+- **RxJava**: Coroutines won the async war, move on
+- **Dagger**: Hilt is simpler, stop being clever
+- **MVP/MVI**: MVVM with Compose is sufficient for 99% of apps
+- **Custom architecture**: You're not Netflix, use standard patterns
+- **Microframeworks**: Every 200-line library is another dependency to maintain
+
+## The Measurement Manifesto
+
+### What to Measure
+- **App startup time** (cold, warm, hot)
+- **Frame drops** and ANRs
+- **Memory usage** and leaks
+- **APK/AAB size** and download time
+- **Crash-free users** percentage
+- **User retention** and engagement
+
+### What NOT to Measure
+- **Lines of code** (meaningless vanity metric)
+- **Test coverage** (high coverage ≠ good tests)
+- **Cyclomatic complexity** (premature optimization)
+- **Technical debt** (unmeasurable and subjective)
+
+## The Consistency Imperative
+
+### Every Change Is a System Change
+When you modify code, you MUST:
+
+1. **Trace dependencies** - Use IDE's "Find Usages" religiously
+2. **Update all callers** - Don't leave broken call sites
+3. **Fix all imports** - Remove unused, add missing, organize
+4. **Propagate naming** - If you rename X, rename it everywhere
+5. **Update related tests** - Don't leave orphaned test cases
+6. **Check similar patterns** - If you fix a bug in A, scan for same bug in B
+
+### Codebase Hygiene Rules
+
+- **One concept, one name** - Don't call the same thing `user`, `profile`, `account`
+- **Consistent error handling** - Same pattern everywhere (Result<T>, exceptions, etc.)
+- **Uniform resource naming** - `btn_submit` everywhere, not `button_submit` sometimes
+- **Centralized constants** - No magic strings/numbers scattered around
+- **Consistent architecture** - Don't mix patterns (MVVM + MVC in same app)
+
+### The Propagation Checklist
+
+Before committing any change:
+- [ ] **All compilation errors fixed** (obvious but often ignored)
+- [ ] **All affected tests updated** (run full test suite)
+- [ ] **All similar code patterns updated** (search for duplicates)
+- [ ] **All related documentation updated** (README, comments, etc.)
+- [ ] **All imports optimized** (remove unused, organize)
+
+## The Debugging Doctrine
+
+### Make Your App Debuggable
+- **Centralized logging** with proper levels
+- **Crash reporting** that actually helps (not just stack traces)
+- **Performance monitoring** in production
+- **Feature flags** for risky changes
+- **Proper error handling** that doesn't eat exceptions
+
+### Make Your Code Debuggable
+- **Meaningful variable names** (not `data`, `manager`, `helper`)
+- **Small functions** that do one thing
+- **Obvious code flow** (avoid clever tricks)
+- **Explicit dependencies** (no hidden globals)
+
+## The Shipping Checklist
+
+Before any release:
+
+- [ ] **Codebase integrity verified** (no broken references, consistent patterns)
+- [ ] **All imports clean** (no unused, properly organized)
+- [ ] **Does it work on a shitty phone?** (Test on lowest-spec device you support)
+- [ ] **Does it work on shitty network?** (Test on 2G/airplane mode)
+- [ ] **Does it work when things go wrong?** (Test error states)
+- [ ] **Can you debug it in production?** (Logging, monitoring, flags)
+- [ ] **Can you roll it back?** (Staged rollout, kill switches)
+
+## The Meta-Rule
+
+**Question everything, including this framework.**
+
+If following these rules makes your app worse, ignore the rules. The goal is great software, not rule compliance.
+
+## The End
+
+Stop reading frameworks. Start shipping software.
+
+---
+
+*"The best code is no code at all. The second best code is code that works and can be deleted easily when requirements change."*

@@ -1,0 +1,51 @@
+*.iml
+.gradle
+/local.properties
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+
+# Sensitive files - NEVER commit these
+app/google-services.json
+app/release-keystore.jks
+app/release-keystore.properties
+app/upload-keystore.jks
+app/upload-keystore.properties
+
+# Build artifacts
+**/build/
+**/intermediates/
+**/outputs/
+**/tmp/
+**/generated/
+
+# Log files
+*.log
+logcat*.txt
+logcat*.md
+
+# IDE files
+.idea/
+*.iml
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Gradle
+.gradle/
+gradle-app.setting
+!gradle-wrapper.jar
+!gradle-wrapper.properties
+
+# Local configuration
+local.properties
