@@ -32,10 +32,12 @@ app/upload-keystore.properties
 *.log
 logcat*.txt
 logcat*.md
+log.md
 
 # IDE files
 .idea/
 *.iml
+.cursor/
 
 # OS files
 .DS_Store
@@ -49,3 +51,7 @@ gradle-app.setting
 
 # Local configuration
 local.properties
+
+# Development artifacts
+baselineprofile/
+.github/workflows/
