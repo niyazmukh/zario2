@@ -16,6 +16,6 @@ interface EvaluationHistoryDao {
     @Query("SELECT * FROM evaluation_history WHERE userEmail = :userEmail ORDER BY evaluationEndTime DESC")
     fun getAll(userEmail: String): Flow<List<EvaluationHistoryEntry>>
 
-    @Query("SELECT * FROM evaluation_history WHERE userEmail = :userEmail AND packageName = :pkg ORDER BY evaluationEndTime DESC")
-    fun getByPackage(userEmail: String, pkg: String): Flow<List<EvaluationHistoryEntry>>
+    @Query("SELECT * FROM evaluation_history WHERE userEmail = :userEmail AND planLabel = :label ORDER BY evaluationEndTime DESC")
+    fun getByPlanLabel(userEmail: String, label: String): Flow<List<EvaluationHistoryEntry>>
 } 

@@ -10,25 +10,23 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
-import androidx.fragment.app.viewModels
-import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
-import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
-import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.work.WorkManager
 import com.niyaz.zario.Constants
-import com.niyaz.zario.databinding.FragmentTargetBinding
-import com.niyaz.zario.data.TargetSelectionState
-import com.niyaz.zario.ui.target.adapter.AppUsageAdapter
 import com.niyaz.zario.R
-import com.niyaz.zario.utils.TimeUtils
-import com.niyaz.zario.data.TargetApp
+import com.niyaz.zario.data.ScreenTimePlan
+import com.niyaz.zario.databinding.FragmentTargetBinding
 import com.niyaz.zario.repository.EvaluationRepository
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
+import com.niyaz.zario.utils.TimeUtils
+import com.niyaz.zario.utils.UsageStatsUtils
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
+import kotlin.math.max
 import kotlin.math.roundToInt
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @AndroidEntryPoint
 class TargetFragment : Fragment() {
@@ -36,10 +34,12 @@ class TargetFragment : Fragment() {
     private var _binding: FragmentTargetBinding? = null
     private val binding get() = _binding!!
 
-    private val viewModel: TargetViewModel by viewModels()
-    private lateinit var appUsageAdapter: AppUsageAdapter
     @Inject lateinit var evaluationRepository: EvaluationRepository
-    private var selectedAppInfo: com.niyaz.zario.data.AppUsageInfo? = null
+
+    private var todayUsageMs: Long = 0L
+    private var trailingAverageMs: Long = 0L
+    private var baselineUsageMs: Long = Constants.MIN_USAGE_THRESHOLD_MS
+    private var recommendedGoalMs: Long = 0L
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -52,94 +52,18 @@ class TargetFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        
-        // evaluationRepository injected
-        
-        setupRecyclerView()
-        observeViewModel()
         setupClickListeners()
-        
-        // Initial load
         loadUsageData()
     }
 
     override fun onResume() {
         super.onResume()
-        // CRITICAL FIX: Synchronize permission state and handle all cases
         refreshPermissionState()
-    }
-
-    /**
-     * Safely checks and handles permission state changes when returning from Settings.
-     * Prevents race conditions and handles both granted/denied scenarios.
-     */
-    private fun refreshPermissionState() {
-        val hasPermission = hasUsageStatsPermission()
-        
-        // Get current ViewModel state to determine appropriate action
-        val currentState = viewModel.state.value
-        
-        when {
-            hasPermission -> {
-                // Permission granted - reload data if we're in error/permission state
-                if (currentState is TargetSelectionState.Error || 
-                    binding.buttonGrantPermission.visibility == View.VISIBLE) {
-                    
-                    Log.d(Constants.LOG_TAG_TARGET_FRAGMENT, "Permission granted, reloading usage data")
-                    
-                    // Reset UI state and reload
-                    selectedAppInfo = null
-                    appUsageAdapter.setSelectedApp(null)
-                    loadUsageData()
-                }
-                // If already showing apps, don't reload unnecessarily
-            }
-            else -> {
-                // Permission denied or not available - show appropriate error state
-                Log.d(Constants.LOG_TAG_TARGET_FRAGMENT, "Permission not available, showing permission required state")
-                showPermissionRequired()
-            }
-        }
-    }
-
-    private fun setupRecyclerView() {
-        appUsageAdapter = AppUsageAdapter { appUsageInfo ->
-            // Handle app selection and show goal summary
-            selectedAppInfo = appUsageInfo
-            showGoalSummary(appUsageInfo)
-            appUsageAdapter.setSelectedApp(appUsageInfo.packageName)
-        }
-
-        binding.recyclerViewApps.apply {
-            layoutManager = LinearLayoutManager(context)
-            adapter = appUsageAdapter
-        }
-    }
-
-    private fun observeViewModel() {
-        viewLifecycleOwner.lifecycleScope.launch {
-            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.state.collect { state ->
-                    when (state) {
-                        is TargetSelectionState.Loading -> showLoading()
-                        is TargetSelectionState.Success -> showApps(state.topApps)
-                        is TargetSelectionState.Error -> showError(state.message)
-                    }
-                }
-            }
-        }
     }
 
     private fun setupClickListeners() {
         binding.buttonRetry.setOnClickListener {
-            if (hasUsageStatsPermission()) {
-                // Reset UI state and reload data
-                selectedAppInfo = null
-                appUsageAdapter.setSelectedApp(null)
-                loadUsageData()
-            } else {
-                requestUsageStatsPermission()
-            }
+            loadUsageData()
         }
 
         binding.buttonGrantPermission.setOnClickListener {
@@ -147,32 +71,15 @@ class TargetFragment : Fragment() {
         }
 
         binding.btnConfirmTarget.setOnClickListener {
-            selectedAppInfo?.let { appInfo ->
-                // Stop current monitoring so the new target starts fresh
-                androidx.work.WorkManager.getInstance(requireContext())
-                    .cancelUniqueWork(com.niyaz.zario.worker.UsageMonitoringWorker.WORK_NAME)
+            confirmPlan()
+        }
+    }
 
-                // Save target app
-                // Clear any existing target only now – we keep previous target alive until a new one is confirmed
-                evaluationRepository.clearTargetApp()
-                val goalTimeMs = (appInfo.dailyAverageMs * Constants.GOAL_REDUCTION_RATIO).toLong()
-
-                val targetApp = TargetApp(
-                    packageName = appInfo.packageName,
-                    appName = appInfo.appName,
-                    goalTimeMs = goalTimeMs,
-                    dailyAverageMs = appInfo.dailyAverageMs,
-                    targetSelectedTime = System.currentTimeMillis(),
-                    evaluationStartTime = null // Will be set when evaluation actually starts
-                )
-                evaluationRepository.saveTargetApp(targetApp)
-                
-                // Navigate to intervention screen ONLY after successful save
-                findNavController().navigate(R.id.action_target_to_intervention)
-            } ?: run {
-                // Show error if no app selected
-                showNoAppSelectedError()
-            }
+    private fun refreshPermissionState() {
+        if (!hasUsageStatsPermission()) {
+            showPermissionRequired()
+        } else if (binding.progressBar.visibility != View.VISIBLE && todayUsageMs == 0L) {
+            loadUsageData()
         }
     }
 
@@ -182,11 +89,44 @@ class TargetFragment : Fragment() {
             return
         }
 
-        // Show loading with a small delay for better UX
+        showLoading()
+
         viewLifecycleOwner.lifecycleScope.launch {
-            delay(Constants.LOADING_DELAY_MS)
-            viewModel.fetchUsageData(requireContext())
+            val usageSummary = withContext(Dispatchers.IO) {
+                UsageStatsUtils.getGlobalUsageSummary(requireContext(), Constants.USAGE_ANALYSIS_DAYS)
+            }
+
+            todayUsageMs = usageSummary.todayUsageMs
+            trailingAverageMs = usageSummary.trailingAverageMs
+
+            val hasHistoricalUsage = usageSummary.validDayCount > 0 && trailingAverageMs > 0L
+            val hasTodayUsage = todayUsageMs > 0L
+
+            baselineUsageMs = when {
+                hasHistoricalUsage -> trailingAverageMs
+                hasTodayUsage -> todayUsageMs
+                else -> Constants.MIN_USAGE_THRESHOLD_MS
+            }
+
+            recommendedGoalMs = calculateRecommendedGoal(baselineUsageMs)
+
+            if (!hasTodayUsage && !hasHistoricalUsage) {
+                Log.w(Constants.LOG_TAG_TARGET_FRAGMENT, "No usage detected yet; using minimum baseline for goal setup")
+            }
+
+            val averageForDisplay = if (hasHistoricalUsage) trailingAverageMs else baselineUsageMs
+
+            showPlanSummary(
+                averageUsageMs = averageForDisplay,
+                todayUsageMs = todayUsageMs,
+                isEstimated = !hasHistoricalUsage && !hasTodayUsage
+            )
         }
+    }
+
+    private fun calculateRecommendedGoal(dailyUsageMs: Long): Long {
+        val baseline = max(dailyUsageMs, Constants.MIN_USAGE_THRESHOLD_MS)
+        return (baseline * Constants.GOAL_REDUCTION_RATIO).toLong().coerceAtLeast(Constants.MIN_USAGE_THRESHOLD_MS)
     }
 
     private fun showLoading() {
@@ -194,67 +134,51 @@ class TargetFragment : Fragment() {
             progressBar.visibility = View.VISIBLE
             textViewLoading.visibility = View.VISIBLE
             recyclerViewApps.visibility = View.GONE
+            tvSectionTitle.visibility = View.GONE
             textViewError.visibility = View.GONE
             buttonRetry.visibility = View.GONE
             buttonGrantPermission.visibility = View.GONE
             cardGoalSummary.visibility = View.GONE
-            updateConfirmButtonState(false)
+            updateConfirmButton(enabled = false)
         }
     }
 
-    private fun showApps(apps: List<com.niyaz.zario.data.AppUsageInfo>) {
-        binding.apply {
-            progressBar.visibility = View.GONE
-            textViewLoading.visibility = View.GONE
-            recyclerViewApps.visibility = View.VISIBLE
-            textViewError.visibility = View.GONE
-            buttonRetry.visibility = View.GONE
-            buttonGrantPermission.visibility = View.GONE
-            
-            // Reset confirmation button and summary
-            cardGoalSummary.visibility = View.GONE
-            updateConfirmButtonState(false)
-        }
-        
-        appUsageAdapter.submitList(apps)
-        // Reset selection when new apps are loaded
-        appUsageAdapter.setSelectedApp(null)
-    }
-
-    private fun showGoalSummary(appUsageInfo: com.niyaz.zario.data.AppUsageInfo) {
-        binding.apply {
-            // Show the goal summary card
-            cardGoalSummary.visibility = View.VISIBLE
-            
-            // Format daily average usage
-            val dailyAverageFormatted = TimeUtils.formatTimeForGoal(requireContext(), appUsageInfo.dailyAverageMs)
-            tvCurrentUsage.text = getString(R.string.goal_summary_usage, dailyAverageFormatted)
-            
-            // Calculate 20% reduction goal
-            val goalTimeMs = (appUsageInfo.dailyAverageMs * Constants.GOAL_REDUCTION_RATIO).toLong()
-            val goalTimeFormatted = TimeUtils.formatTimeForGoal(requireContext(), goalTimeMs)
-            tvGoalUsage.text = getString(R.string.goal_summary_target, goalTimeFormatted)
-
-            // Dynamic reduction percentage based on Constants.GOAL_REDUCTION_RATIO
-            val reductionPct = ((1 - Constants.GOAL_REDUCTION_RATIO) * 100).roundToInt()
-            tvReductionInfo.text = getString(R.string.goal_reduction_percentage, reductionPct)
-            
-            // Enable confirmation button
-            updateConfirmButtonState(true)
-        }
-    }
-
-    private fun showError(message: String) {
+    private fun showPlanSummary(
+        averageUsageMs: Long,
+        todayUsageMs: Long,
+        isEstimated: Boolean
+    ) {
         binding.apply {
             progressBar.visibility = View.GONE
             textViewLoading.visibility = View.GONE
             recyclerViewApps.visibility = View.GONE
-            textViewError.visibility = View.VISIBLE
-            textViewError.text = message
-            buttonRetry.visibility = View.VISIBLE
+            tvSectionTitle.visibility = View.GONE
+            textViewError.visibility = View.GONE
+            buttonRetry.visibility = View.GONE
             buttonGrantPermission.visibility = View.GONE
-            cardGoalSummary.visibility = View.GONE
-            updateConfirmButtonState(false)
+
+            cardGoalSummary.visibility = View.VISIBLE
+
+            val averageFormatted = TimeUtils.formatTimeForGoal(requireContext(), averageUsageMs)
+            val goalFormatted = TimeUtils.formatTimeForGoal(requireContext(), recommendedGoalMs)
+            val reductionPct = ((1 - Constants.GOAL_REDUCTION_RATIO) * 100).roundToInt()
+
+            tvCurrentUsage.text = getString(R.string.goal_summary_usage, averageFormatted)
+            tvGoalUsage.text = getString(R.string.goal_summary_target, goalFormatted)
+            if (todayUsageMs > 0L) {
+                tvTodayUsage.visibility = View.VISIBLE
+                val todayFormatted = TimeUtils.formatTimeForGoal(requireContext(), todayUsageMs)
+                tvTodayUsage.text = getString(R.string.goal_summary_today_usage, todayFormatted)
+            } else {
+                tvTodayUsage.visibility = View.GONE
+            }
+            tvReductionInfo.text = if (isEstimated) {
+                getString(R.string.goal_summary_estimated_usage)
+            } else {
+                getString(R.string.goal_reduction_percentage, reductionPct)
+            }
+
+            updateConfirmButton(enabled = true)
         }
     }
 
@@ -263,12 +187,61 @@ class TargetFragment : Fragment() {
             progressBar.visibility = View.GONE
             textViewLoading.visibility = View.GONE
             recyclerViewApps.visibility = View.GONE
+            tvSectionTitle.visibility = View.GONE
+            cardGoalSummary.visibility = View.GONE
             textViewError.visibility = View.VISIBLE
             textViewError.text = getString(R.string.usage_stats_permission_required_analyze)
             buttonRetry.visibility = View.GONE
             buttonGrantPermission.visibility = View.VISIBLE
+            updateConfirmButton(enabled = false)
+        }
+    }
+
+    private fun showError(message: String) {
+        binding.apply {
+            progressBar.visibility = View.GONE
+            textViewLoading.visibility = View.GONE
+            recyclerViewApps.visibility = View.GONE
+            tvSectionTitle.visibility = View.GONE
             cardGoalSummary.visibility = View.GONE
-            updateConfirmButtonState(false)
+            textViewError.visibility = View.VISIBLE
+            textViewError.text = message
+            buttonRetry.visibility = View.VISIBLE
+            buttonGrantPermission.visibility = View.GONE
+            updateConfirmButton(enabled = false)
+        }
+    }
+
+    private fun confirmPlan() {
+        try {
+            val plan = ScreenTimePlan(
+                goalTimeMs = recommendedGoalMs,
+                dailyAverageMs = baselineUsageMs,
+                label = ScreenTimePlan.DEFAULT_LABEL,
+                planCreatedAt = System.currentTimeMillis(),
+                evaluationStartTime = null
+            )
+
+            WorkManager.getInstance(requireContext())
+                .cancelUniqueWork(com.niyaz.zario.worker.UsageMonitoringWorker.WORK_NAME)
+
+            evaluationRepository.savePlan(plan)
+
+            findNavController().navigate(R.id.action_target_to_intervention)
+        } catch (e: Exception) {
+            Log.e(Constants.LOG_TAG_TARGET_FRAGMENT, "Failed to save screen-time plan", e)
+            showError(getString(R.string.error_setting_plan))
+        }
+    }
+
+    private fun updateConfirmButton(enabled: Boolean) {
+        binding.btnConfirmTarget.apply {
+            isEnabled = enabled
+            text = if (enabled) {
+                getString(R.string.confirm_goal_selection)
+            } else {
+                getString(R.string.confirm_goal_selection_disabled)
+            }
         }
     }
 
@@ -283,37 +256,11 @@ class TargetFragment : Fragment() {
     }
 
     private fun requestUsageStatsPermission() {
-        val intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
-        startActivity(intent)
-    }
-
-    private fun updateConfirmButtonState(hasSelection: Boolean) {
-        binding.btnConfirmTarget.apply {
-            isEnabled = hasSelection
-            text = if (hasSelection) {
-                getString(R.string.confirm_target_selection)
-            } else {
-                getString(R.string.confirm_target_selection_disabled)
-            }
-        }
-    }
-
-    private fun showNoAppSelectedError() {
-        binding.apply {
-            progressBar.visibility = View.GONE
-            textViewLoading.visibility = View.GONE
-            recyclerViewApps.visibility = View.GONE
-            textViewError.visibility = View.VISIBLE
-            textViewError.text = getString(R.string.error_no_app_selected)
-            buttonRetry.visibility = View.VISIBLE
-            buttonGrantPermission.visibility = View.GONE
-            cardGoalSummary.visibility = View.GONE
-            updateConfirmButtonState(false)
-        }
+        startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
     }
 
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
     }
-} 
+}

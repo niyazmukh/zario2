@@ -25,7 +25,7 @@ class ZarioApp : Application(), Configuration.Provider {
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
             .setWorkerFactory(workerFactory)
-            .setMinimumLoggingLevel(Log.DEBUG)
+            .setMinimumLoggingLevel(Log.ERROR)
             .build()
             
     override fun onCreate() {
@@ -34,14 +34,14 @@ class ZarioApp : Application(), Configuration.Provider {
         // Manually initialize WorkManager with our custom configuration
         WorkManager.initialize(this, workManagerConfiguration)
         
-        Log.d("ZarioApp", "Application created with WorkManager initialized using HiltWorkerFactory")
+        Log.i("ZarioApp", "Application created with WorkManager initialized using HiltWorkerFactory")
         
         // CRITICAL: Boot-time recovery for process kills
         // If there's an active evaluation when the app starts, restart monitoring
         CoroutineScope(Dispatchers.IO).launch {
-            val currentTarget = evaluationRepository.getCurrentTargetApp()
-            if (currentTarget?.evaluationStartTime != null && !evaluationRepository.isEvaluationCompleted()) {
-                Log.i("ZarioApp", "Boot recovery: Restarting monitoring for active evaluation (${currentTarget.packageName})")
+            val currentPlan = evaluationRepository.getCurrentPlan()
+            if (currentPlan?.evaluationStartTime != null && !evaluationRepository.isEvaluationCompleted()) {
+                Log.i("ZarioApp", "Boot recovery: Restarting monitoring for active evaluation (${currentPlan.label})")
                 
                 // Restart monitoring scheduler immediately
                 val recoveryScheduler = OneTimeWorkRequestBuilder<MonitoringSchedulerWorker>()
@@ -55,9 +55,7 @@ class ZarioApp : Application(), Configuration.Provider {
                 )
                 
                 Log.i("ZarioApp", "Boot recovery: Monitoring scheduler restarted successfully")
-            } else {
-                Log.d("ZarioApp", "Boot recovery: No active evaluation found, monitoring not needed")
-            }
+                    }
         }
     }
 } 

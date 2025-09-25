@@ -48,7 +48,7 @@ object Constants {
     const val LOADING_DELAY_MS = 300L
     const val CARD_STROKE_WIDTH_SELECTED = 2
     const val CARD_STROKE_WIDTH_UNSELECTED = 1
-    const val GOAL_REDUCTION_RATIO = 0.1 // should be 80%, 10% for testing
+    const val GOAL_REDUCTION_RATIO = 0.8 // 80% reduction from current usage
     const val ARRAY_INDEX_PRIMARY_COLOR = 0
     const val ARRAY_INDEX_OUTLINE_COLOR = 1
     
@@ -68,7 +68,7 @@ object Constants {
     const val MS_TO_MINUTES_DIVISOR = 1000 * 60
     
     // Evaluation Cycle
-    const val EVALUATION_DURATION_MS = 60 * 60 * 1000L // should be 24 hours, 60 min for testing
+    const val EVALUATION_DURATION_MS = 24 * 60 * 60 * 1000L // 24 hours (DEPRECATED: now using calendar days via CalendarUtils)
     const val MAX_WORKER_RETRIES = 3 // Maximum retries for failed workers
     
     // Adaptive Timing Intervals (for smart monitoring)

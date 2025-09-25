@@ -7,9 +7,9 @@ import androidx.room.PrimaryKey
 data class EvaluationHistoryEntry(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val userEmail: String,
-    val packageName: String,
-    val appName: String,
+    val planLabel: String,
     val goalTimeMs: Long,
+    val dailyAverageMs: Long,
     val finalUsageMs: Long,
     val evaluationStartTime: Long,
     val evaluationEndTime: Long,

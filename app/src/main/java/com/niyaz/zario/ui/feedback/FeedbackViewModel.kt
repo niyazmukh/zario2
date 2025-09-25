@@ -18,7 +18,7 @@ data class FeedbackData(
     val goalMet: Boolean,
     val pointsChange: Int,
     val goalStreak: Int,
-    val appName: String,
+    val planLabel: String,
     val isLoading: Boolean = false
 )
 
@@ -32,7 +32,7 @@ class FeedbackViewModel @Inject constructor(
         goalMet = false,
         pointsChange = 0,
         goalStreak = 0,
-        appName = "",
+        planLabel = "",
         isLoading = true
     ))
     val feedbackData: StateFlow<FeedbackData> = _feedbackData.asStateFlow()
@@ -55,7 +55,7 @@ class FeedbackViewModel @Inject constructor(
                         goalMet = false,
                         pointsChange = 0,
                         goalStreak = 0,
-                        appName = "",
+                        planLabel = "",
                         isLoading = false
                     )
                     return@launch
@@ -83,7 +83,7 @@ class FeedbackViewModel @Inject constructor(
                     goalMet = latestEntry.metGoal,
                     pointsChange = pointsChange,
                     goalStreak = goalStreak,
-                    appName = latestEntry.appName,
+                    planLabel = latestEntry.planLabel,
                     isLoading = false
                 )
 
@@ -93,7 +93,7 @@ class FeedbackViewModel @Inject constructor(
                     goalMet = false,
                     pointsChange = 0,
                     goalStreak = 0,
-                    appName = "",
+                    planLabel = "",
                     isLoading = false
                 )
             }

@@ -3,9 +3,9 @@ package com.niyaz.zario.ui.history
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
-import android.widget.ArrayAdapter
 import androidx.activity.OnBackPressedCallback
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
@@ -17,10 +17,13 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.niyaz.zario.Constants
 import com.niyaz.zario.R
 import com.niyaz.zario.databinding.FragmentHistoryBinding
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.niyaz.zario.ui.history.adapter.EvaluationHistoryAdapter
+import com.niyaz.zario.ui.history.adapter.TodayUsageAdapter
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import com.niyaz.zario.repository.UserSessionRepository
+import com.niyaz.zario.utils.TimeUtils
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -32,11 +35,10 @@ class HistoryFragment : Fragment() {
 
     private val viewModel: HistoryViewModel by viewModels()
     private lateinit var adapter: EvaluationHistoryAdapter
+    private lateinit var todayUsageAdapter: TodayUsageAdapter
+    private var filterOptions: List<String> = emptyList()
 
     @Inject lateinit var sessionRepository: UserSessionRepository
-    
-    // Keep a local reference to the current history list for filtering operations
-    private var currentHistoryList: List<com.niyaz.zario.data.local.entities.EvaluationHistoryEntry> = emptyList()
 
     private val backCallback = object : OnBackPressedCallback(true) {
         override fun handleOnBackPressed() {
@@ -62,10 +64,14 @@ class HistoryFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         
         Log.d(Constants.LOG_TAG_HISTORY_FRAGMENT, "HistoryFragment onViewCreated")
-        
+
+        binding.root.isFocusableInTouchMode = true
+        binding.root.requestFocus()
+
         setupRecyclerView()
         setupFilter()
         observeHistory()
+        observeTodayUsage()
         
         // Show loading state initially
         showLoading()
@@ -73,6 +79,7 @@ class HistoryFragment : Fragment() {
 
     private fun setupRecyclerView() {
         adapter = EvaluationHistoryAdapter()
+        todayUsageAdapter = TodayUsageAdapter()
         binding.recyclerHistory.apply {
             layoutManager = LinearLayoutManager(requireContext())
             adapter = this@HistoryFragment.adapter
@@ -90,97 +97,73 @@ class HistoryFragment : Fragment() {
                 }
             })
         }
+
+        binding.recyclerTodayUsage.apply {
+            layoutManager = LinearLayoutManager(requireContext())
+            adapter = todayUsageAdapter
+            val spacing = resources.getDimensionPixelSize(R.dimen.spacing_xs)
+            addItemDecoration(object : androidx.recyclerview.widget.RecyclerView.ItemDecoration() {
+                override fun getItemOffsets(
+                    outRect: android.graphics.Rect,
+                    view: View,
+                    parent: androidx.recyclerview.widget.RecyclerView,
+                    state: androidx.recyclerview.widget.RecyclerView.State
+                ) {
+                    outRect.bottom = spacing
+                }
+            })
+        }
     }
 
     private fun setupFilter() {
-        // Collect unique app names for dropdown
-        lifecycleScope.launch {
-            viewModel.history.collect { list ->
-                updateFilterOptions(list)
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.history.collect { list ->
+                    updateFilterOptions(list)
+                }
             }
         }
 
-        binding.autoFilter.setOnItemClickListener { _, _, pos, _ ->
-            val selectedItem = binding.autoFilter.adapter?.getItem(pos) as? String
-            if (selectedItem == getString(R.string.history_filter_all)) {
-                viewModel.setFilter(null)
-            } else {
-                selectedItem?.let { appName ->
-                    // Find the package name for the selected app name
-                    val packageName = findPackageNameForAppName(appName)
-                    viewModel.setFilter(packageName)
+        binding.autoFilter.apply {
+            isFocusable = false
+            isFocusableInTouchMode = false
+            isCursorVisible = false
+            keyListener = null
+            setOnClickListener { showFilterSelector() }
+            setOnTouchListener { _, event ->
+                if (event.action == MotionEvent.ACTION_UP) {
+                    showFilterSelector()
+                    return@setOnTouchListener true
+                }
+                false
+            }
+            setOnFocusChangeListener { _, hasFocus ->
+                if (hasFocus) {
+                    clearFocus()
                 }
             }
-            
-            // Refresh the adapter to update visual indicators
-            (binding.autoFilter.adapter as? ArrayAdapter<*>)?.notifyDataSetChanged()
         }
-        
-        // Fix: Show all options when dropdown is opened, regardless of current text
-        binding.autoFilter.setOnFocusChangeListener { _, hasFocus ->
-            if (hasFocus) {
-                binding.autoFilter.showDropDown()
-            }
-        }
-        
-        // Fix: Override threshold to 0 so all items are always shown
-        binding.autoFilter.threshold = 0
-        
-        // Fix: Show dropdown when clicked, ensuring all options are visible
-        binding.autoFilter.setOnClickListener {
-            binding.autoFilter.showDropDown()
+
+        binding.tilFilter.setEndIconOnClickListener {
+            showFilterSelector()
         }
     }
 
     private fun updateFilterOptions(historyList: List<com.niyaz.zario.data.local.entities.EvaluationHistoryEntry>) {
-        val appNames = historyList.map { it.appName }.distinct().sorted()
-        val options = listOf(getString(R.string.history_filter_all)) + appNames
-        
-        // Create custom adapter that shows selected state
-        val filterAdapter = object : ArrayAdapter<String>(
-            requireContext(), 
-            android.R.layout.simple_dropdown_item_1line, 
-            options
-        ) {
-            override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
-                val view = super.getView(position, convertView, parent)
-                val textView = view as android.widget.TextView
-                val item = getItem(position)
-                val currentSelection = binding.autoFilter.text.toString()
-                
-                // Highlight selected item
-                if (item == currentSelection) {
-                    textView.setTextColor(requireContext().getColor(R.color.evaluation_success))
-                    textView.setTypeface(textView.typeface, android.graphics.Typeface.BOLD)
-                    // Add checkmark or bullet point to indicate selection
-                    textView.text = "✓ $item"
-                } else {
-                    // Use consistent color with other UI text (same as subtitle/loading text)
-                    val typedArray = requireContext().obtainStyledAttributes(intArrayOf(
-                        com.google.android.material.R.attr.colorOnSurfaceVariant
-                    ))
-                    val textColor = typedArray.getColor(0, 0)
-                    typedArray.recycle()
-                    
-                    textView.setTextColor(textColor)
-                    textView.setTypeface(textView.typeface, android.graphics.Typeface.NORMAL)
-                    textView.text = item
-                }
-                
-                return view
+        val planLabels = historyList.map { it.planLabel }.distinct().sorted()
+        filterOptions = listOf(getString(R.string.history_filter_all)) + planLabels
+
+        val currentFilter = viewModel.filterLabel.value
+        val resolvedSelection = currentFilter ?: getString(R.string.history_filter_all)
+
+        if (!filterOptions.contains(resolvedSelection)) {
+            viewModel.setFilter(null)
+            binding.autoFilter.setText(getString(R.string.history_filter_all))
+        } else {
+            if (binding.autoFilter.text.toString() != resolvedSelection) {
+                binding.autoFilter.setText(resolvedSelection)
             }
         }
-        
-        binding.autoFilter.setAdapter(filterAdapter)
-        
-        // Set default selection to "All apps"
-        if (binding.autoFilter.text.isEmpty()) {
-            binding.autoFilter.setText(getString(R.string.history_filter_all), false)
-        }
-    }
-
-    private fun findPackageNameForAppName(appName: String): String? {
-        return currentHistoryList.find { it.appName == appName }?.packageName
     }
 
     private fun observeHistory() {
@@ -188,10 +171,7 @@ class HistoryFragment : Fragment() {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.history.collect { historyList ->
                     Log.d(Constants.LOG_TAG_HISTORY_FRAGMENT, "History updated: ${historyList.size} entries")
-                    
-                    // Update local reference
-                    currentHistoryList = historyList
-                    
+
                     hideLoading()
                     
                     if (historyList.isEmpty()) {
@@ -201,6 +181,37 @@ class HistoryFragment : Fragment() {
                     }
                     
                     adapter.submitList(historyList)
+                }
+            }
+        }
+    }
+
+    private fun observeTodayUsage() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.todayUsageEntries.collect { entries ->
+                    val totalTextView = binding.tvTodayUsage
+                    val recycler = binding.recyclerTodayUsage
+
+                    if (entries.isEmpty()) {
+                        totalTextView.visibility = View.GONE
+                        recycler.visibility = View.GONE
+                        todayUsageAdapter.submitList(emptyList())
+                        return@collect
+                    }
+
+                    val totalDuration = entries.sumOf { it.durationMs }
+                    val formattedTotal = TimeUtils.formatTimeForDisplay(requireContext(), totalDuration)
+                    totalTextView.text = getString(R.string.history_stats_today_usage, formattedTotal)
+                    totalTextView.visibility = View.VISIBLE
+
+                    recycler.visibility = View.VISIBLE
+                    todayUsageAdapter.submitList(entries)
+
+                    // Ensure the statistics card is visible even if history list is empty
+                    if (binding.cardStatistics.visibility != View.VISIBLE) {
+                        binding.cardStatistics.visibility = View.VISIBLE
+                    }
                 }
             }
         }
@@ -224,7 +235,7 @@ class HistoryFragment : Fragment() {
     }
 
     private fun showEmptyState() {
-        val isFiltered = viewModel.filterPackage.value != null
+    val isFiltered = viewModel.filterLabel.value != null
         
         binding.apply {
             recyclerHistory.visibility = View.GONE
@@ -275,7 +286,61 @@ class HistoryFragment : Fragment() {
             "Statistics: $totalCycles total, $successfulCycles successful, $successRate% success rate")
     }
 
+    private fun showFilterSelector() {
+        if (!isAdded || !viewLifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+            return
+        }
+
+        val options = filterOptions
+        if (options.isEmpty()) {
+            return
+        }
+
+        val currentSelection = binding.autoFilter.text.toString()
+        val checkedIndex = options.indexOf(currentSelection).takeIf { it >= 0 } ?: 0
+
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.history_filter_dialog_title)
+            .setSingleChoiceItems(options.toTypedArray(), checkedIndex) { dialog, which ->
+                applyFilterSelection(options[which])
+                dialog.dismiss()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun applyFilterSelection(selection: String) {
+        if (selection == getString(R.string.history_filter_all)) {
+            viewModel.setFilter(null)
+        } else {
+            viewModel.setFilter(selection)
+        }
+
+        binding.autoFilter.setText(selection)
+        clearFilterFocus()
+    }
+
+    private fun clearFilterFocus() {
+        _binding?.autoFilter?.clearFocus()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        viewModel.refreshTodayTotals()
+    }
+
+    override fun onPause() {
+        clearFilterFocus()
+        super.onPause()
+    }
+
+    override fun onStop() {
+        clearFilterFocus()
+        super.onStop()
+    }
+
     override fun onDestroyView() {
+        clearFilterFocus()
         super.onDestroyView()
         Log.d(Constants.LOG_TAG_HISTORY_FRAGMENT, "HistoryFragment onDestroyView")
         _binding = null

@@ -57,9 +57,6 @@ class LoginFragment : Fragment() {
             findNavController().navigate(R.id.action_login_to_signup)
         }
 
-        binding.tvForgotPassword.setOnClickListener {
-            // TODO: Implement forgot password functionality
-        }
     }
 
     private fun observeViewModel() {
@@ -120,7 +117,7 @@ class LoginFragment : Fragment() {
             !(hasUsage && hasNotif) -> {
                 findNavController().navigate(R.id.action_login_to_permissions)
             }
-            !evaluationRepository.hasTargetSelected() -> {
+            !evaluationRepository.hasPlanConfigured() -> {
                 findNavController().navigate(R.id.action_login_to_target)
             }
             else -> {

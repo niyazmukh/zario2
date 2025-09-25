@@ -187,13 +187,6 @@
         android:label="@string/intervention_title"
         tools:layout="@layout/fragment_intervention">
         <action
-            android:id="@+id/action_intervention_to_target"
-            app:destination="@id/targetFragment"
-            app:enterAnim="@android:anim/slide_in_left"
-            app:exitAnim="@android:anim/slide_out_right"
-            app:popEnterAnim="@android:anim/slide_in_left"
-            app:popExitAnim="@android:anim/slide_out_right" />
-        <action
             android:id="@+id/action_intervention_to_login"
             app:destination="@id/loginFragment"
             app:enterAnim="@android:anim/slide_in_left"

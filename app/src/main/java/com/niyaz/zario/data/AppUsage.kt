@@ -11,12 +11,6 @@ data class AppUsageInfo(
     val isTarget: Boolean = false
 )
 
-data class UsageAnalysisResult(
-    val topApps: List<AppUsageInfo>,
-    val isLoading: Boolean = false,
-    val error: String? = null
-)
-
 sealed class TargetSelectionState {
     object Loading : TargetSelectionState()
     data class Success(val topApps: List<AppUsageInfo>) : TargetSelectionState()

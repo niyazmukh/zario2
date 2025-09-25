@@ -78,7 +78,7 @@ class SplashFragment : Fragment() {
             return@withContext
         }
 
-        if (!evaluationRepository.hasTargetSelected()) {
+    if (!evaluationRepository.hasPlanConfigured()) {
             navigateSafely(R.id.action_splash_to_target)
             return@withContext
         }

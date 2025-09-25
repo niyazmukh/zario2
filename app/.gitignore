@@ -1,1 +1,25 @@
+## Android module build outputs
 /build
+
+# Generated files
+**/build/
+**/generated/
+
+# Signing / keystore (do not commit private keys)
+*.jks
+*.keystore
+release-keystore.jks
+upload-keystore.jks
+release-keystore.properties
+upload-keystore.properties
+
+# Local config
+/local.properties
+
+# Packaged outputs
+*.apk
+*.aab
+
+# Logs
+*.log
+logcat*.txt

@@ -10,6 +10,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.niyaz.zario.Constants
+import com.niyaz.zario.data.ScreenTimePlan
 import com.niyaz.zario.repository.EvaluationRepository
 import com.niyaz.zario.utils.UsageStatsUtils
 import com.niyaz.zario.data.local.entities.EvaluationHistoryEntry
@@ -34,56 +35,55 @@ class UsageMonitoringWorker @AssistedInject constructor(
         Log.d(TAG, "UsageMonitoringWorker instantiated successfully with Hilt")
     }
 
-    override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
-        return@withContext try {
-            Log.d(TAG, "UsageMonitoringWorker started")
-            
-            // Note: Removed foreground promotion to avoid Android 14 background start restrictions
-            // Expedited execution still ensures fresh usage stats via WorkManager priority
+    override suspend fun doWork(): Result {
+        return try {
+            Log.i(TAG, "🔄 EXECUTING UsageMonitoringWorker - fetching global screen-time usage")
 
-            val targetApp = repository.getCurrentTargetApp() ?: run {
-                Log.w(TAG, "No target app found")
-                return@withContext Result.failure()
+            val currentPlan = repository.getCurrentPlan() ?: run {
+                Log.w(TAG, "No active screen-time plan configured, stopping monitoring")
+                return Result.success()
             }
 
-            val evaluationStartTime = targetApp.evaluationStartTime ?: run {
-                Log.w(TAG, "Evaluation not started")
-                return@withContext Result.failure()
-            }
+            val activePlan = if (currentPlan.evaluationStartTime == null) {
+                repository.startEvaluation() ?: currentPlan
+            } else currentPlan
 
+            val evaluationStartTime = activePlan.evaluationStartTime ?: run {
+                Log.w(TAG, "Plan missing evaluation start, aborting cycle")
+                return Result.success()
+            }
             val currentTime = System.currentTimeMillis()
             val elapsedTime = currentTime - evaluationStartTime
             
-            // Check if evaluation period has ended
-            if (elapsedTime >= Constants.EVALUATION_DURATION_MS) {
-                Log.d(TAG, "Evaluation period completed")
-                return@withContext completeEvaluation(targetApp.packageName, evaluationStartTime, currentTime)
+            // Check if evaluation period has ended (end of calendar day)
+            val dayExpired = !com.niyaz.zario.utils.CalendarUtils.isWithinCurrentDay(evaluationStartTime) || 
+                           currentTime >= com.niyaz.zario.utils.CalendarUtils.getEndOfCurrentDay()
+            
+            if (dayExpired) {
+                Log.d(TAG, "Evaluation period completed (end of calendar day)")
+                val evaluationEndTime = com.niyaz.zario.utils.CalendarUtils.getEndOfCurrentDay()
+                return completeEvaluation(evaluationStartTime, evaluationEndTime, activePlan)
             }
 
             // Track current usage using shared helper (reusable by ViewModel too)
-            val currentUsage = UsageStatsUtils.preciseUsageSinceBaseline(
-                applicationContext,
-                targetApp.packageName,
-                targetApp.baselineUsageMs,
-                targetApp.evaluationStartTime
-            )
+            val currentUsage = UsageStatsUtils.getCurrentDayScreenTimePrecise(applicationContext)
             
             Log.d(TAG, "Current usage: ${currentUsage}ms, Elapsed: ${elapsedTime}ms")
 
             // Check 80% threshold notification
-            val threshold = (targetApp.goalTimeMs * Constants.NOTIFICATION_THRESHOLD_PERCENTAGE).toLong()
-            if (targetApp.goalTimeMs > 0 && currentUsage >= threshold && !repository.hasSent80PercentNotification()) {
+            val threshold = (activePlan.goalTimeMs * Constants.NOTIFICATION_THRESHOLD_PERCENTAGE).toLong()
+            if (activePlan.goalTimeMs > 0 && currentUsage >= threshold && !repository.hasSent80PercentNotification()) {
                 Log.i(TAG, "80% usage threshold reached – sending notification")
-                com.niyaz.zario.utils.NotificationUtils.sendUsageThresholdReached(applicationContext, targetApp, targetApp.goalTimeMs)
+                com.niyaz.zario.utils.NotificationUtils.sendUsageThresholdReached(applicationContext, activePlan, currentUsage)
                 repository.mark80PercentNotificationSent()
             }
             
             // Build progress/output data
             val outputData = Data.Builder()
-                .putString(OUTPUT_PACKAGE_NAME, targetApp.packageName)
                 .putLong(OUTPUT_CURRENT_USAGE, currentUsage)
                 .putLong(OUTPUT_ELAPSED_TIME, elapsedTime)
-                .putLong(OUTPUT_GOAL_TIME, targetApp.goalTimeMs)
+                .putLong(OUTPUT_GOAL_TIME, activePlan.goalTimeMs)
+                .putString(OUTPUT_PLAN_LABEL, activePlan.label)
                 .putLong(OUTPUT_TIMESTAMP, currentTime)
                 .build()
 
@@ -100,19 +100,12 @@ class UsageMonitoringWorker @AssistedInject constructor(
         }
     }
 
-    private fun completeEvaluation(packageName: String, startTime: Long, endTime: Long): Result {
+    private fun completeEvaluation(startTime: Long, endTime: Long, plan: ScreenTimePlan): Result {
         return try {
-            val targetApp = repository.getCurrentTargetApp()
-            val finalUsage = UsageStatsUtils.preciseUsageSinceBaseline(
-                applicationContext,
-                packageName,
-                targetApp?.baselineUsageMs ?: 0L,
-                targetApp?.evaluationStartTime
-            )
+            val finalUsage = UsageStatsUtils.getCurrentDayScreenTimePrecise(applicationContext)
 
             // Persist history entry (best-effort, ignore failures)
-            if (targetApp != null) {
-                val metGoal = finalUsage <= targetApp.goalTimeMs
+            val metGoal = if (plan.goalTimeMs > 0) finalUsage <= plan.goalTimeMs else false
 
                 // -----------------------------------------------------------
                 // Points adjustment logic (clamped)
@@ -135,16 +128,15 @@ class UsageMonitoringWorker @AssistedInject constructor(
 
                 val entry = EvaluationHistoryEntry(
                     userEmail = userEmail,
-                    packageName = packageName,
-                    appName = targetApp.appName,
-                    goalTimeMs = targetApp.goalTimeMs,
+                    planLabel = plan.label,
+                    goalTimeMs = plan.goalTimeMs,
+                    dailyAverageMs = plan.dailyAverageMs,
                     finalUsageMs = finalUsage,
                     evaluationStartTime = startTime,
                     evaluationEndTime = endTime,
                     metGoal = metGoal
                 )
                 kotlinx.coroutines.runBlocking { repository.recordCycleResult(entry) }
-            }
 
             // CRITICAL FIX: Mark evaluation as completed BEFORE starting next cycle
             // This prevents race conditions with ViewModel refresh operations
@@ -168,10 +160,10 @@ class UsageMonitoringWorker @AssistedInject constructor(
             Log.d(TAG, "Next scheduler enqueued for new cycle")
 
             val outputData = Data.Builder()
-                .putString(OUTPUT_PACKAGE_NAME, packageName)
                 .putLong(OUTPUT_CURRENT_USAGE, finalUsage)
-                .putLong(OUTPUT_ELAPSED_TIME, Constants.EVALUATION_DURATION_MS)
-                .putLong(OUTPUT_GOAL_TIME, repository.getCurrentTargetApp()?.goalTimeMs ?: 0L)
+                .putLong(OUTPUT_ELAPSED_TIME, endTime - startTime)
+                .putLong(OUTPUT_GOAL_TIME, plan.goalTimeMs)
+                .putString(OUTPUT_PLAN_LABEL, plan.label)
                 .putLong(OUTPUT_TIMESTAMP, endTime)
                 .putBoolean(OUTPUT_EVALUATION_COMPLETE, true)
                 .build()
@@ -190,11 +182,11 @@ class UsageMonitoringWorker @AssistedInject constructor(
         const val WORK_NAME = "usage_monitoring"
         
         // Output data keys
-        const val OUTPUT_PACKAGE_NAME = "package_name"
         const val OUTPUT_CURRENT_USAGE = "current_usage"
         const val OUTPUT_ELAPSED_TIME = "elapsed_time"
         const val OUTPUT_GOAL_TIME = "goal_time"
         const val OUTPUT_TIMESTAMP = "timestamp"
+        const val OUTPUT_PLAN_LABEL = "plan_label"
         const val OUTPUT_EVALUATION_COMPLETE = "evaluation_complete"
     }
 } 

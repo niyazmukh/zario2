@@ -9,7 +9,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.niyaz.zario.Constants
-import com.niyaz.zario.data.TargetApp
+import com.niyaz.zario.data.ScreenTimePlan
 import com.niyaz.zario.data.evaluationDataStore
 import com.niyaz.zario.data.local.dao.EvaluationHistoryDao
 import com.niyaz.zario.data.local.entities.EvaluationHistoryEntry
@@ -35,94 +35,83 @@ class EvaluationRepository @Inject constructor(
 
     private val dataStore: DataStore<Preferences> = context.evaluationDataStore
 
-    private val _currentTargetApp = MutableStateFlow<TargetApp?>(null)
-    val currentTargetApp: StateFlow<TargetApp?> = _currentTargetApp.asStateFlow()
+    private val _currentPlan = MutableStateFlow<ScreenTimePlan?>(null)
+    val currentPlan: StateFlow<ScreenTimePlan?> = _currentPlan.asStateFlow()
 
     init {
         // Stream DataStore updates into in-memory cache
         CoroutineScope(Dispatchers.IO).launch {
             dataStore.data
-                .map { it.toTargetAppOrNull() }
-                .collect { _currentTargetApp.value = it }
+                .map { it.toPlanOrNull() }
+                .collect { _currentPlan.value = it }
         }
     }
 
-    fun saveTargetApp(targetApp: TargetApp) {
+    fun savePlan(plan: ScreenTimePlan) {
         runBlocking {
             dataStore.edit { prefs ->
-                prefs[PrefKeys.PACKAGE_NAME] = targetApp.packageName
-                prefs[PrefKeys.APP_NAME] = targetApp.appName
-                prefs[PrefKeys.GOAL_TIME_MS] = targetApp.goalTimeMs
-                prefs[PrefKeys.DAILY_AVERAGE_MS] = targetApp.dailyAverageMs
-                prefs[PrefKeys.TARGET_SELECTED_TIME] = targetApp.targetSelectedTime
-                targetApp.evaluationStartTime?.let { prefs[PrefKeys.EVALUATION_START_TIME] = it } ?: prefs.remove(PrefKeys.EVALUATION_START_TIME)
-                prefs[PrefKeys.BASELINE_USAGE_MS] = targetApp.baselineUsageMs
-                // Reset 80% flag when a new goal is picked
+                prefs[PrefKeys.GOAL_TIME_MS] = plan.goalTimeMs
+                prefs[PrefKeys.DAILY_AVERAGE_MS] = plan.dailyAverageMs
+                prefs[PrefKeys.PLAN_LABEL] = plan.label
+                prefs[PrefKeys.PLAN_CREATED_AT] = plan.planCreatedAt
+                plan.evaluationStartTime?.let { prefs[PrefKeys.EVALUATION_START_TIME] = it }
+                    ?: prefs.remove(PrefKeys.EVALUATION_START_TIME)
                 prefs[PrefKeys.NOTIFIED_80] = false
-                // Only reset completion state when starting a completely new target
-                // For cycle transitions, preserve feedback state until viewed
-                if (getCurrentTargetApp()?.packageName != targetApp.packageName) {
-                    // New target - reset completion state
-                    prefs[PrefKeys.EVALUATION_COMPLETED] = false
-                    prefs.remove(PrefKeys.EVALUATION_COMPLETION_TIME)
-                    prefs[PrefKeys.FEEDBACK_VIEWED] = true // Default to viewed for new targets
-                }
-                // For same target (cycle transition), keep existing completion/feedback state
+                prefs[PrefKeys.EVALUATION_COMPLETED] = false
+                prefs.remove(PrefKeys.EVALUATION_COMPLETION_TIME)
+                prefs[PrefKeys.FEEDBACK_VIEWED] = true
             }
         }
     }
 
-    fun loadTargetApp(): TargetApp? {
-        return runBlocking { dataStore.data.first().toTargetAppOrNull() }
+    fun loadPlan(): ScreenTimePlan? {
+        return runBlocking { dataStore.data.first().toPlanOrNull() }
     }
 
-    fun startEvaluation(): TargetApp? {
-        val targetApp = loadTargetApp()
-        return if (targetApp != null && targetApp.evaluationStartTime == null) {
-            val baseline = com.niyaz.zario.utils.UsageStatsUtils.getCumulativeForegroundTime(context, targetApp.packageName)
-            val updated = targetApp.copy(
-                evaluationStartTime = System.currentTimeMillis(),
-                baselineUsageMs = baseline
+    fun startEvaluation(): ScreenTimePlan? {
+        val plan = loadPlan()
+        return if (plan != null && plan.evaluationStartTime == null) {
+            val updated = plan.copy(
+                evaluationStartTime = com.niyaz.zario.utils.CalendarUtils.getStartOfCurrentDay()
             )
-            saveTargetApp(updated)
+            savePlan(updated)
             updated
-        } else targetApp
+        } else plan
     }
 
-    fun clearTargetApp() {
+    fun clearPlan() {
         runBlocking { dataStore.edit { it.clear() } }
     }
 
-    fun hasTargetSelected(): Boolean {
-        val cached = _currentTargetApp.value
-        return if (cached != null) true else runBlocking { dataStore.data.first().toTargetAppOrNull() != null }
+    fun hasPlanConfigured(): Boolean {
+        val cached = _currentPlan.value
+        return if (cached != null) true else runBlocking { dataStore.data.first().toPlanOrNull() != null }
     }
 
     fun hasActiveEvaluation(): Boolean {
-        val target = _currentTargetApp.value ?: runBlocking { dataStore.data.first().toTargetAppOrNull() } ?: return false
-        val start = target.evaluationStartTime ?: return false
-        val elapsed = System.currentTimeMillis() - start
-        return elapsed < Constants.EVALUATION_DURATION_MS
+        val plan = _currentPlan.value ?: runBlocking { dataStore.data.first().toPlanOrNull() } ?: return false
+        val start = plan.evaluationStartTime ?: return false
+        return com.niyaz.zario.utils.CalendarUtils.isWithinCurrentDay(start) && 
+               System.currentTimeMillis() < com.niyaz.zario.utils.CalendarUtils.getEndOfCurrentDay()
     }
 
     fun isEvaluationExpired(): Boolean {
-        val target = _currentTargetApp.value ?: runBlocking { dataStore.data.first().toTargetAppOrNull() } ?: return false
-        val start = target.evaluationStartTime ?: return false
-        val elapsed = System.currentTimeMillis() - start
-        return elapsed >= Constants.EVALUATION_DURATION_MS
+        val plan = _currentPlan.value ?: runBlocking { dataStore.data.first().toPlanOrNull() } ?: return false
+        val start = plan.evaluationStartTime ?: return false
+        return !com.niyaz.zario.utils.CalendarUtils.isWithinCurrentDay(start) || 
+               System.currentTimeMillis() >= com.niyaz.zario.utils.CalendarUtils.getEndOfCurrentDay()
     }
 
     fun getEvaluationTimeRemaining(): Long {
-        val target = loadTargetApp()
-        return if (target?.evaluationStartTime != null) {
-            val elapsed = System.currentTimeMillis() - target.evaluationStartTime
-            maxOf(0L, Constants.EVALUATION_DURATION_MS - elapsed)
+        val plan = loadPlan()
+        return if (plan?.evaluationStartTime != null && com.niyaz.zario.utils.CalendarUtils.isWithinCurrentDay(plan.evaluationStartTime)) {
+            com.niyaz.zario.utils.CalendarUtils.getTimeRemainingInCurrentDay()
         } else 0L
     }
 
-    fun getCurrentTargetApp(): TargetApp? {
-        val cached = _currentTargetApp.value
-        return cached ?: runBlocking { dataStore.data.first().toTargetAppOrNull() }
+    fun getCurrentPlan(): ScreenTimePlan? {
+        val cached = _currentPlan.value
+        return cached ?: runBlocking { dataStore.data.first().toPlanOrNull() }
     }
 
     // ------------------------------------------------------------------
@@ -148,7 +137,6 @@ class EvaluationRepository @Inject constructor(
         runBlocking {
             dataStore.edit { it[PrefKeys.NOTIFIED_80] = false }
         }
-        Log.d(TAG, "80% notification flag reset for new evaluation cycle")
     }
 
     // ------------------------------------------------------------------
@@ -177,7 +165,6 @@ class EvaluationRepository @Inject constructor(
                 prefs[PrefKeys.FEEDBACK_VIEWED] = false // Mark as unviewed
             }
         }
-        Log.d(TAG, "Evaluation marked as completed")
     }
 
     /**
@@ -192,20 +179,20 @@ class EvaluationRepository @Inject constructor(
 
     /**
      * Checks if the current evaluation should be considered completed based on
-     * both time elapsed and completion state. This is the authoritative check.
+     * calendar day boundaries and completion state. This is the authoritative check.
      */
     fun shouldShowCompletionState(): Boolean {
-        val target = getCurrentTargetApp() ?: return false
-        val start = target.evaluationStartTime ?: return false
+        val plan = getCurrentPlan() ?: return false
+        val start = plan.evaluationStartTime ?: return false
         
         val now = System.currentTimeMillis()
-        val elapsed = now - start
         
-        // Check both time-based completion and explicit completion state
-        val timeExpired = elapsed >= Constants.EVALUATION_DURATION_MS
+        // Check both calendar day completion and explicit completion state
+        val dayExpired = !com.niyaz.zario.utils.CalendarUtils.isWithinCurrentDay(start) || 
+                        now >= com.niyaz.zario.utils.CalendarUtils.getEndOfCurrentDay()
         val markedCompleted = isEvaluationCompleted()
         
-        return timeExpired || markedCompleted
+        return dayExpired || markedCompleted
     }
 
     /**
@@ -230,7 +217,6 @@ class EvaluationRepository @Inject constructor(
                 prefs[PrefKeys.FEEDBACK_VIEWED] = true
             }
         }
-        Log.d(TAG, "Feedback marked as viewed")
     }
 
     // ------------------------------------------------------------------
@@ -241,61 +227,47 @@ class EvaluationRepository @Inject constructor(
     }
 
     /** Starts a fresh evaluation cycle for the current target (indefinite cycles). */
-    fun startNextCycle(): TargetApp? {
-        val target = getCurrentTargetApp() ?: return null
-        val baseline = com.niyaz.zario.utils.UsageStatsUtils.getCumulativeForegroundTime(context, target.packageName)
-        val updated = target.copy(
-            evaluationStartTime = System.currentTimeMillis(),
-            baselineUsageMs = baseline
+    fun startNextCycle(): ScreenTimePlan? {
+        val plan = getCurrentPlan() ?: return null
+        val updated = plan.copy(
+            evaluationStartTime = com.niyaz.zario.utils.CalendarUtils.getStartOfCurrentDay()
         )
-        
-        // For cycle transitions, manually update only the fields we need to change
-        // while preserving completion/feedback state until user views feedback
+
         runBlocking {
             dataStore.edit { prefs ->
                 prefs[PrefKeys.EVALUATION_START_TIME] = updated.evaluationStartTime!!
-                prefs[PrefKeys.BASELINE_USAGE_MS] = updated.baselineUsageMs
-                // Reset 80% notification for new cycle but preserve feedback state
                 prefs[PrefKeys.NOTIFIED_80] = false
-                // Keep EVALUATION_COMPLETED and FEEDBACK_VIEWED as-is until user views feedback
             }
         }
-        
-        Log.d(TAG, "Next cycle started, preserving feedback state until viewed")
-        
+
         return updated
     }
 
     // ------------------------------------------------------------------
     // Preferences ↔ Domain mapping helpers
     // ------------------------------------------------------------------
-    private fun Preferences.toTargetAppOrNull(): TargetApp? {
-        val pkg = this[PrefKeys.PACKAGE_NAME] ?: return null
-        val appName = this[PrefKeys.APP_NAME] ?: ""
-        val goal = this[PrefKeys.GOAL_TIME_MS] ?: 0L
+    private fun Preferences.toPlanOrNull(): ScreenTimePlan? {
+        val goal = this[PrefKeys.GOAL_TIME_MS] ?: return null
         val avg = this[PrefKeys.DAILY_AVERAGE_MS] ?: 0L
-        val selectedTime = this[PrefKeys.TARGET_SELECTED_TIME] ?: System.currentTimeMillis()
+    val label = this[PrefKeys.PLAN_LABEL] ?: ScreenTimePlan.DEFAULT_LABEL
+    val createdAt = this[PrefKeys.PLAN_CREATED_AT] ?: System.currentTimeMillis()
         val start = this[PrefKeys.EVALUATION_START_TIME]
-        val baseline = this[PrefKeys.BASELINE_USAGE_MS] ?: 0L
-        return TargetApp(
-            packageName = pkg,
-            appName = appName,
+        return ScreenTimePlan(
             goalTimeMs = goal,
             dailyAverageMs = avg,
-            targetSelectedTime = selectedTime,
-            evaluationStartTime = start,
-            baselineUsageMs = baseline
+            label = label,
+            planCreatedAt = createdAt,
+            evaluationStartTime = start
         )
     }
 
     private object PrefKeys {
-        val PACKAGE_NAME = stringPreferencesKey("target_package_name")
-        val APP_NAME = stringPreferencesKey("target_app_name")
-        val GOAL_TIME_MS = longPreferencesKey("target_goal_time_ms")
-        val DAILY_AVERAGE_MS = longPreferencesKey("target_daily_average_ms")
-        val TARGET_SELECTED_TIME = longPreferencesKey("target_selected_time")
+        val GOAL_TIME_MS = longPreferencesKey("plan_goal_time_ms")
+        val DAILY_AVERAGE_MS = longPreferencesKey("plan_daily_average_ms")
+    val PLAN_LABEL = stringPreferencesKey("plan_label")
+        val PLAN_CREATED_AT = longPreferencesKey("plan_created_at")
         val EVALUATION_START_TIME = longPreferencesKey("evaluation_start_time")
-        val BASELINE_USAGE_MS = longPreferencesKey("baseline_usage_ms")
+    // Removed baseline; now using calendar-day aggregation only
         val NOTIFIED_80 = booleanPreferencesKey("notified_80")
         val EVALUATION_COMPLETED = booleanPreferencesKey("evaluation_completed")
         val EVALUATION_COMPLETION_TIME = longPreferencesKey("evaluation_completion_time")

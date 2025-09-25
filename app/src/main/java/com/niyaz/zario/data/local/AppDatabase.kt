@@ -7,7 +7,7 @@ import com.niyaz.zario.data.local.entities.EvaluationHistoryEntry
 
 @Database(
     entities = [EvaluationHistoryEntry::class],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

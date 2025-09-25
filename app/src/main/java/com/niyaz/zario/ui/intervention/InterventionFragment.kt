@@ -12,10 +12,10 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import androidx.appcompat.widget.PopupMenu
-import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.niyaz.zario.R
 import com.niyaz.zario.Constants
+import com.niyaz.zario.data.ScreenTimePlan
 import com.niyaz.zario.data.EvaluationState
 import com.niyaz.zario.databinding.FragmentInterventionBinding
 import com.niyaz.zario.utils.TimeUtils
@@ -118,10 +118,6 @@ class InterventionFragment : Fragment() {
             popupMenu.menuInflater.inflate(R.menu.intervention_menu, popupMenu.menu)
             popupMenu.setOnMenuItemClickListener { menuItem ->
                 when (menuItem.itemId) {
-                    R.id.menu_new_goal -> {
-                        handleNewGoal()
-                        true
-                    }
                     R.id.menu_logout -> {
                         confirmLogout()
                         true
@@ -161,11 +157,6 @@ class InterventionFragment : Fragment() {
         binding.swipeRefreshLayout.postDelayed({
             binding.swipeRefreshLayout.isRefreshing = false
         }, 500) // 500ms delay to show refresh completion
-    }
-    
-    private fun handleNewGoal() {
-        // Clear current evaluation and navigate to target selection
-        findNavController().navigate(R.id.action_intervention_to_target)
     }
     
     private fun confirmLogout() {
@@ -245,8 +236,8 @@ class InterventionFragment : Fragment() {
     }
 
     private fun updateUI(state: EvaluationState) {
-        // Update subtitle based on target app
-        updateSubtitle(state)
+    // Update subtitle based on current screen-time plan
+    updateSubtitle(state)
         
         when (state) {
             is EvaluationState.NotStarted -> {
@@ -264,35 +255,21 @@ class InterventionFragment : Fragment() {
             is EvaluationState.GoalExceeded -> {
                 showGoalExceededState(state)
             }
-            is EvaluationState.Completed -> {
-                showCompletedState(state)
-            }
             is EvaluationState.Error -> {
                 showErrorState(state.message, state.isRetryable)
-            }
-            is EvaluationState.Paused -> {
-                showPausedState()
             }
         }
     }
     
     private fun updateSubtitle(state: EvaluationState) {
-        val appName = when (state) {
-            is EvaluationState.Active -> state.progress.targetApp.appName
-            is EvaluationState.Success -> state.finalProgress.targetApp.appName
-            is EvaluationState.GoalExceeded -> state.finalProgress.targetApp.appName
-            is EvaluationState.Completed -> state.finalProgress.targetApp.appName
-            else -> {
-                // Try to get app name from repository
-                evaluationRepository.getCurrentTargetApp()?.appName
-            }
-        }
-        
-        binding.tvSubtitle.text = if (appName != null) {
-            String.format(getString(R.string.intervention_subtitle), appName)
-        } else {
-            getString(R.string.intervention_subtitle).replace("%1\$s ", "")
-        }
+        val planLabel = when (state) {
+            is EvaluationState.Active -> state.progress.plan.label
+            is EvaluationState.Success -> state.finalProgress.plan.label
+            is EvaluationState.GoalExceeded -> state.finalProgress.plan.label
+            else -> evaluationRepository.getCurrentPlan()?.label
+        } ?: ScreenTimePlan.DEFAULT_LABEL
+
+        binding.tvSubtitle.text = getString(R.string.intervention_subtitle, planLabel)
     }
 
     private fun showNotStartedState() {
@@ -316,8 +293,8 @@ class InterventionFragment : Fragment() {
     }
 
     private fun showActiveState(state: EvaluationState.Active) {
-        val progress = state.progress
-        val targetApp = progress.targetApp
+    val progress = state.progress
+    val plan = progress.plan
         
         binding.apply {
             progressIndicator.visibility = View.VISIBLE
@@ -334,7 +311,7 @@ class InterventionFragment : Fragment() {
             )
             tvGoalTime.text = getString(
                 R.string.goal_time_format,
-                TimeUtils.formatTimeForDisplay(requireContext(), targetApp.goalTimeMs)
+                TimeUtils.formatTimeForDisplay(requireContext(), plan.goalTimeMs)
             )
             
             // Update time remaining
@@ -366,14 +343,14 @@ class InterventionFragment : Fragment() {
                 R.string.progress_accessibility_description,
                 String.format("%.1f", progress.usagePercentage),
                 TimeUtils.formatTimeForDisplay(requireContext(), progress.currentUsageMs),
-                TimeUtils.formatTimeForDisplay(requireContext(), targetApp.goalTimeMs)
+                TimeUtils.formatTimeForDisplay(requireContext(), plan.goalTimeMs)
             )
         }
     }
 
     private fun showSuccessState(state: EvaluationState.Success) {
         val progress = state.finalProgress
-        val targetApp = progress.targetApp
+        val plan = progress.plan
         
         binding.apply {
             progressIndicator.visibility = View.VISIBLE
@@ -389,7 +366,7 @@ class InterventionFragment : Fragment() {
             )
             tvGoalTime.text = getString(
                 R.string.goal_time_format,
-                TimeUtils.formatTimeForDisplay(requireContext(), targetApp.goalTimeMs)
+                TimeUtils.formatTimeForDisplay(requireContext(), plan.goalTimeMs)
             )
             tvTimeRemaining.text = getString(R.string.evaluation_completed)
             
@@ -413,14 +390,14 @@ class InterventionFragment : Fragment() {
                 R.string.final_progress_accessibility_description,
                 if (wasSuccessful) "achieved" else "exceeded",
                 TimeUtils.formatTimeForDisplay(requireContext(), progress.currentUsageMs),
-                TimeUtils.formatTimeForDisplay(requireContext(), targetApp.goalTimeMs)
+                TimeUtils.formatTimeForDisplay(requireContext(), plan.goalTimeMs)
             )
         }
     }
 
     private fun showGoalExceededState(state: EvaluationState.GoalExceeded) {
         val progress = state.finalProgress
-        val targetApp = progress.targetApp
+        val plan = progress.plan
         
         binding.apply {
             progressIndicator.visibility = View.VISIBLE
@@ -436,7 +413,7 @@ class InterventionFragment : Fragment() {
             )
             tvGoalTime.text = getString(
                 R.string.goal_time_format,
-                TimeUtils.formatTimeForDisplay(requireContext(), targetApp.goalTimeMs)
+                TimeUtils.formatTimeForDisplay(requireContext(), plan.goalTimeMs)
             )
             tvTimeRemaining.text = getString(R.string.evaluation_completed)
             
@@ -454,57 +431,12 @@ class InterventionFragment : Fragment() {
                 R.string.final_progress_accessibility_description,
                 "exceeded",
                 TimeUtils.formatTimeForDisplay(requireContext(), progress.currentUsageMs),
-                TimeUtils.formatTimeForDisplay(requireContext(), targetApp.goalTimeMs)
+                TimeUtils.formatTimeForDisplay(requireContext(), plan.goalTimeMs)
             )
         }
     }
 
-    private fun showCompletedState(state: EvaluationState.Completed) {
-        val progress = state.finalProgress
-        val targetApp = progress.targetApp
-        
-        binding.apply {
-            progressIndicator.visibility = View.VISIBLE
-            
-            // Show final usage percentage, capped at maximum for progress bar display
-            val displayPercentage = progress.usagePercentage.coerceAtMost(Constants.PROGRESS_MAX_PERCENTAGE)
-            progressIndicator.progress = displayPercentage.toInt()
-            
-            // Show final usage value
-            tvCurrentUsage.text = getString(
-                R.string.final_usage_format,
-                TimeUtils.formatTimeForDisplay(requireContext(), progress.currentUsageMs)
-            )
-            tvGoalTime.text = getString(
-                R.string.goal_time_format,
-                TimeUtils.formatTimeForDisplay(requireContext(), targetApp.goalTimeMs)
-            )
-            tvTimeRemaining.text = getString(R.string.evaluation_completed)
-            
-            val wasSuccessful = progress.usagePercentage <= Constants.PROGRESS_MAX_PERCENTAGE
-            progressText.text = if (wasSuccessful) {
-                getString(R.string.evaluation_success_detailed, String.format("%.1f", progress.usagePercentage))
-            } else {
-                getString(R.string.evaluation_exceeded_goal_detailed, String.format("%.1f", progress.usagePercentage))
-            }
-            
-            val statusColor = if (wasSuccessful) {
-                requireContext().getColor(R.color.evaluation_success)
-            } else {
-                requireContext().getColor(R.color.evaluation_exceeded)
-            }
-            
-            progressIndicator.setIndicatorColor(statusColor)
-            
-            // Accessibility for final state
-            progressIndicator.contentDescription = getString(
-                R.string.final_progress_accessibility_description,
-                if (wasSuccessful) "achieved" else "exceeded",
-                TimeUtils.formatTimeForDisplay(requireContext(), progress.currentUsageMs),
-                TimeUtils.formatTimeForDisplay(requireContext(), targetApp.goalTimeMs)
-            )
-        }
-    }
+
 
     private fun showErrorState(message: String, isRetryable: Boolean) {
         binding.apply {
@@ -520,12 +452,7 @@ class InterventionFragment : Fragment() {
         }
     }
     
-    private fun showPausedState() {
-        binding.apply {
-            progressIndicator.visibility = View.VISIBLE
-            progressText.text = getString(R.string.evaluation_paused)
-        }
-    }
+
 
     override fun onDestroyView() {
         super.onDestroyView()
