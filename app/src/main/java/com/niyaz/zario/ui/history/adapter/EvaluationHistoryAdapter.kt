@@ -1,7 +1,6 @@
 package com.niyaz.zario.ui.history.adapter
 
 import android.content.Context
-import android.content.pm.PackageManager
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.core.content.ContextCompat
@@ -33,11 +32,12 @@ class EvaluationHistoryAdapter : ListAdapter<EvaluationHistoryEntry, EvaluationH
         fun bind(entry: EvaluationHistoryEntry) {
             val context = binding.root.context
             
-            // Set app name
-            binding.tvAppName.text = entry.appName
-            
-            // Load app icon
-            loadAppIcon(context, entry.packageName)
+            // Set plan label
+            binding.tvAppName.text = entry.planLabel
+
+            // Use static icon for global screen-time tracking
+            binding.ivAppIcon.setImageResource(R.mipmap.ic_launcher)
+            binding.ivAppIcon.contentDescription = context.getString(R.string.app_icon_content_description, entry.planLabel)
             
             // Format and set evaluation date
             val dateFormat = SimpleDateFormat(Constants.HISTORY_DATE_FORMAT, Locale.getDefault())
@@ -78,25 +78,12 @@ class EvaluationHistoryAdapter : ListAdapter<EvaluationHistoryEntry, EvaluationH
             
             binding.root.contentDescription = context.getString(
                 R.string.history_card_accessibility_description,
-                entry.appName,
+                entry.planLabel,
                 dateStr,
                 usageFormatted,
                 goalFormatted,
                 statusText
             )
-        }
-        
-        private fun loadAppIcon(context: Context, packageName: String) {
-            try {
-                val packageManager = context.packageManager
-                val appIcon = packageManager.getApplicationIcon(packageName)
-                binding.ivAppIcon.setImageDrawable(appIcon)
-                binding.ivAppIcon.contentDescription = context.getString(R.string.app_icon_content_description, packageName)
-            } catch (e: PackageManager.NameNotFoundException) {
-                // Set default icon if app is not found
-                binding.ivAppIcon.setImageResource(R.mipmap.ic_launcher)
-                binding.ivAppIcon.contentDescription = context.getString(R.string.app_icon_content_description, packageName)
-            }
         }
         
         private fun configureStatusBadge(context: Context, metGoal: Boolean, usagePercentage: Int) {

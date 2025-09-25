@@ -2,30 +2,35 @@ package com.niyaz.zario.ui.intervention
 
 import android.content.Context
 import android.util.Log
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.Observer
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.OutOfQuotaPolicy
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
-import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.ExistingWorkPolicy
-import androidx.work.OutOfQuotaPolicy
 import com.niyaz.zario.Constants
 import com.niyaz.zario.R
 import com.niyaz.zario.data.EvaluationProgress
 import com.niyaz.zario.data.EvaluationState
-import com.niyaz.zario.data.TargetApp
+import com.niyaz.zario.data.ScreenTimePlan
 import com.niyaz.zario.repository.EvaluationRepository
-import com.niyaz.zario.worker.UsageMonitoringWorker
+import com.niyaz.zario.utils.CalendarUtils
+import com.niyaz.zario.utils.UsageStatsUtils
 import com.niyaz.zario.worker.MonitoringSchedulerWorker
+import com.niyaz.zario.worker.UsageMonitoringWorker
+import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
+import kotlin.math.max
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
-import javax.inject.Inject
+import kotlinx.coroutines.withContext
 
 @HiltViewModel
 class InterventionViewModel @Inject constructor(
@@ -49,56 +54,26 @@ class InterventionViewModel @Inject constructor(
     fun startEvaluation() {
         viewModelScope.launch {
             try {
-                Log.d(TAG, "Starting evaluation process")
+                Log.i(TAG, "🚀 STARTING SCREEN-TIME EVALUATION")
                 _evaluationState.value = EvaluationState.Preparing
-                
-                // Get or start evaluation for current target
-                val currentTarget = repository.startEvaluation()
-                if (currentTarget == null) {
-                    Log.e(TAG, "No target app found")
-                    _evaluationState.value = EvaluationState.Error(context.getString(R.string.error_no_target_selected))
+
+                val activePlan = repository.startEvaluation()
+                if (activePlan == null) {
+                    Log.e(TAG, "No screen-time plan configured")
+                    _evaluationState.value = EvaluationState.Error(context.getString(R.string.error_no_plan_configured))
                     return@launch
                 }
 
-                Log.d(TAG, "Evaluation in progress for ${currentTarget.packageName}")
-                
-                // Compute current progress if evaluation already running
-                val evaluationStart = currentTarget.evaluationStartTime
-                val now = System.currentTimeMillis()
-                val elapsed = if (evaluationStart != null) now - evaluationStart else 0L
-
-                val currentUsage = if (evaluationStart != null) {
-                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                        com.niyaz.zario.utils.UsageStatsUtils.preciseUsageSinceBaseline(
-                            context,
-                            currentTarget.packageName,
-                            currentTarget.baselineUsageMs,
-                            currentTarget.evaluationStartTime
-                        )
-                    }
-                } else 0L
-
-                val remaining = Constants.EVALUATION_DURATION_MS - elapsed
-                val usagePct = if (currentTarget.goalTimeMs > 0)
-                    (currentUsage.toFloat() / currentTarget.goalTimeMs.toFloat()) * Constants.PROGRESS_MAX_PERCENTAGE else 0f
-                val timePct = if (Constants.EVALUATION_DURATION_MS > 0)
-                    (elapsed.toFloat() / Constants.EVALUATION_DURATION_MS.toFloat()) * Constants.PROGRESS_MAX_PERCENTAGE else 0f
-
-                // Start monitoring work (idempotent – REPLACE policy in WorkManager ensures single chain)
+                val usage = getCurrentUsage()
                 startUsageMonitoring()
 
                 _evaluationState.value = EvaluationState.Active(
-                    EvaluationProgress(
-                        targetApp = currentTarget,
-                        currentUsageMs = currentUsage,
-                        elapsedTimeMs = elapsed,
-                        remainingTimeMs = remaining,
-                        isActive = true,
-                        usagePercentage = usagePct,
-                        timePercentage = timePct
+                    buildProgress(
+                        plan = activePlan,
+                        currentUsage = usage,
+                        isActive = true
                     )
                 )
-                
             } catch (e: Exception) {
                 Log.e(TAG, "Error starting evaluation", e)
                 _evaluationState.value = EvaluationState.Error(
@@ -114,91 +89,46 @@ class InterventionViewModel @Inject constructor(
      */
     fun refreshProgress() {
         viewModelScope.launch {
-            val currentTarget = repository.getCurrentTargetApp() ?: return@launch
-            val evalStart = currentTarget.evaluationStartTime ?: return@launch
-
-            // CRITICAL FIX: Check repository completion state first
-            // This prevents race conditions where refreshProgress runs after worker completion
-            if (repository.shouldShowCompletionState()) {
-                Log.d(TAG, "Evaluation already completed - skipping refresh calculation")
-                return@launch
-            }
+            val plan = repository.getCurrentPlan() ?: return@launch
+            val evaluationStart = plan.evaluationStartTime ?: return@launch
 
             val now = System.currentTimeMillis()
-            val elapsed = now - evalStart
+            val dayExpired = !CalendarUtils.isWithinCurrentDay(evaluationStart) ||
+                now >= CalendarUtils.getEndOfCurrentDay()
 
-            // If the evaluation window has passed, compute the final outcome immediately
-            // instead of waiting for the next worker tick. This prevents negative timers
-            // and ensures the UI reflects the correct final state.
-            if (elapsed >= Constants.EVALUATION_DURATION_MS) {
-                val finalUsage = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                    com.niyaz.zario.utils.UsageStatsUtils.preciseUsageSinceBaseline(
-                        context,
-                        currentTarget.packageName,
-                        currentTarget.baselineUsageMs,
-                        currentTarget.evaluationStartTime
-                    )
+            val currentUsage = getCurrentUsage()
+
+            if (repository.shouldShowCompletionState() || dayExpired) {
+                if (dayExpired && !repository.isEvaluationCompleted()) {
+                    repository.markEvaluationCompleted()
                 }
 
-                val usagePct = if (currentTarget.goalTimeMs > 0)
-                    (finalUsage.toFloat() / currentTarget.goalTimeMs.toFloat()) * Constants.PROGRESS_MAX_PERCENTAGE else 0f
+                val finalProgress = buildProgress(
+                    plan = plan,
+                    currentUsage = currentUsage,
+                    isActive = false,
+                    elapsedOverride = CalendarUtils.getCurrentDayDurationMs(),
+                    remainingOverride = 0L,
+                    timePercentageOverride = Constants.PROGRESS_MAX_PERCENTAGE
+                )
 
-                // Mark completion in repository so subsequent refreshes shortcut.
-                repository.markEvaluationCompleted()
-
-                _evaluationState.value = if (usagePct <= Constants.PROGRESS_MAX_PERCENTAGE) {
-                    EvaluationState.Success(
-                        EvaluationProgress(
-                            targetApp = currentTarget,
-                            currentUsageMs = finalUsage,
-                            elapsedTimeMs = Constants.EVALUATION_DURATION_MS,
-                            remainingTimeMs = 0L,
-                            isActive = false,
-                            usagePercentage = usagePct,
-                            timePercentage = Constants.PROGRESS_MAX_PERCENTAGE
-                        )
-                    )
+                _evaluationState.value = if (plan.goalTimeMs > 0 && currentUsage > plan.goalTimeMs) {
+                    EvaluationState.GoalExceeded(finalProgress)
                 } else {
-                    EvaluationState.GoalExceeded(
-                        EvaluationProgress(
-                            targetApp = currentTarget,
-                            currentUsageMs = finalUsage,
-                            elapsedTimeMs = Constants.EVALUATION_DURATION_MS,
-                            remainingTimeMs = 0L,
-                            isActive = false,
-                            usagePercentage = usagePct,
-                            timePercentage = Constants.PROGRESS_MAX_PERCENTAGE
-                        )
-                    )
+                    EvaluationState.Success(finalProgress)
                 }
                 return@launch
             }
 
-            val currentUsage = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                com.niyaz.zario.utils.UsageStatsUtils.preciseUsageSinceBaseline(
-                    context,
-                    currentTarget.packageName,
-                    currentTarget.baselineUsageMs,
-                    currentTarget.evaluationStartTime
-                )
-            }
-
-            val remaining = Constants.EVALUATION_DURATION_MS - elapsed
-            val usagePct = if (currentTarget.goalTimeMs > 0)
-                (currentUsage.toFloat() / currentTarget.goalTimeMs.toFloat()) * Constants.PROGRESS_MAX_PERCENTAGE else 0f
-            val timePct = (elapsed.toFloat() / Constants.EVALUATION_DURATION_MS.toFloat()) * Constants.PROGRESS_MAX_PERCENTAGE
-
-            _evaluationState.value = EvaluationState.Active(
-                EvaluationProgress(
-                    targetApp = currentTarget,
-                    currentUsageMs = currentUsage,
-                    elapsedTimeMs = elapsed,
-                    remainingTimeMs = remaining,
-                    isActive = true,
-                    usagePercentage = usagePct,
-                    timePercentage = timePct
-                )
+            val elapsed = max(0L, now - evaluationStart)
+            val progress = buildProgress(
+                plan = plan,
+                currentUsage = currentUsage,
+                isActive = true,
+                elapsedOverride = elapsed
             )
+
+            _evaluationState.value = EvaluationState.Active(progress)
         }
     }
 
@@ -232,7 +162,7 @@ class InterventionViewModel @Inject constructor(
         workInfoLiveData = workManager.getWorkInfosForUniqueWorkLiveData(UsageMonitoringWorker.WORK_NAME)
         workInfoObserver = Observer { workInfos ->
             Log.d(TAG, "Work info update received, count: ${workInfos?.size ?: 0}")
-            
+
             workInfos?.forEach { workInfo ->
                 when (workInfo.state) {
                     WorkInfo.State.RUNNING -> {
@@ -272,74 +202,52 @@ class InterventionViewModel @Inject constructor(
 
     private fun updateProgressFromWorkData(outputData: androidx.work.Data) {
         try {
-            outputData.getString(UsageMonitoringWorker.OUTPUT_PACKAGE_NAME) ?: return
             val currentUsage = outputData.getLong(UsageMonitoringWorker.OUTPUT_CURRENT_USAGE, 0L)
             val elapsedTime = outputData.getLong(UsageMonitoringWorker.OUTPUT_ELAPSED_TIME, 0L)
             val goalTime = outputData.getLong(UsageMonitoringWorker.OUTPUT_GOAL_TIME, 0L)
+            val planLabel = outputData.getString(UsageMonitoringWorker.OUTPUT_PLAN_LABEL)
             val isComplete = outputData.getBoolean(UsageMonitoringWorker.OUTPUT_EVALUATION_COMPLETE, false)
-            
+
             Log.d(TAG, "Progress update: usage=${currentUsage}ms, elapsed=${elapsedTime}ms, goal=${goalTime}ms, complete=$isComplete")
-            
-            val currentTarget = repository.getCurrentTargetApp() ?: return
-            
+
+            val plan = repository.getCurrentPlan() ?: planLabel?.let {
+                ScreenTimePlan(
+                    goalTimeMs = goalTime,
+                    dailyAverageMs = 0L,
+                    label = it
+                )
+            } ?: return
+
             if (isComplete) {
-                // Evaluation completed – worker chain keeps running for next cycle
-                Log.i(TAG, "Evaluation completed – monitoring continues for next cycle")
-                
-                val usagePercentage = if (goalTime > 0) (currentUsage.toFloat() / goalTime.toFloat()) * Constants.PROGRESS_MAX_PERCENTAGE else 0f
-                
-                if (usagePercentage <= Constants.PROGRESS_MAX_PERCENTAGE) {
-                    _evaluationState.value = EvaluationState.Success(
-                        EvaluationProgress(
-                            targetApp = currentTarget,
-                            currentUsageMs = currentUsage,
-                            elapsedTimeMs = Constants.EVALUATION_DURATION_MS,
-                            remainingTimeMs = 0L,
-                            isActive = false,
-                            usagePercentage = usagePercentage,
-                            timePercentage = Constants.PROGRESS_MAX_PERCENTAGE
-                        )
-                    )
+                val completedProgress = buildProgress(
+                    plan = plan,
+                    currentUsage = currentUsage,
+                    isActive = false,
+                    elapsedOverride = elapsedTime,
+                    remainingOverride = 0L,
+                    timePercentageOverride = Constants.PROGRESS_MAX_PERCENTAGE
+                )
+
+                _evaluationState.value = if (plan.goalTimeMs > 0 && currentUsage > plan.goalTimeMs) {
+                    EvaluationState.GoalExceeded(completedProgress)
                 } else {
-                    _evaluationState.value = EvaluationState.GoalExceeded(
-                        EvaluationProgress(
-                            targetApp = currentTarget,
-                            currentUsageMs = currentUsage,
-                            elapsedTimeMs = Constants.EVALUATION_DURATION_MS,
-                            remainingTimeMs = 0L,
-                            isActive = false,
-                            usagePercentage = usagePercentage,
-                            timePercentage = Constants.PROGRESS_MAX_PERCENTAGE
-                        )
-                    )
+                    EvaluationState.Success(completedProgress)
                 }
             } else {
-                // CRITICAL FIX: Double-check completion state before updating active evaluation
-                // This prevents stale worker data from overriding completion state
                 if (repository.shouldShowCompletionState()) {
                     Log.d(TAG, "Evaluation marked as completed - ignoring active progress update")
                     return
                 }
-                
-                // Update active evaluation
-                val remainingTime = (Constants.EVALUATION_DURATION_MS - elapsedTime).coerceAtLeast(0L)
-                val usagePercentage = if (goalTime > 0) (currentUsage.toFloat() / goalTime.toFloat()) * Constants.PROGRESS_MAX_PERCENTAGE else 0f
-                val timePercentage = if (Constants.EVALUATION_DURATION_MS > 0) 
-                    (elapsedTime.toFloat() / Constants.EVALUATION_DURATION_MS.toFloat()) * Constants.PROGRESS_MAX_PERCENTAGE else 0f
-                
-                _evaluationState.value = EvaluationState.Active(
-                    EvaluationProgress(
-                        targetApp = currentTarget,
-                        currentUsageMs = currentUsage,
-                        elapsedTimeMs = elapsedTime,
-                        remainingTimeMs = remainingTime,
-                        isActive = true,
-                        usagePercentage = usagePercentage,
-                        timePercentage = timePercentage
-                    )
+
+                val activeProgress = buildProgress(
+                    plan = plan,
+                    currentUsage = currentUsage,
+                    isActive = true,
+                    elapsedOverride = elapsedTime
                 )
+
+                _evaluationState.value = EvaluationState.Active(activeProgress)
             }
-            
         } catch (e: Exception) {
             Log.e(TAG, "Error updating progress from work data", e)
         }
@@ -375,5 +283,43 @@ class InterventionViewModel @Inject constructor(
 
     companion object {
         private const val TAG = Constants.LOG_TAG_INTERVENTION_VIEWMODEL
+    }
+
+    private suspend fun getCurrentUsage(): Long = withContext(Dispatchers.IO) {
+        UsageStatsUtils.getCurrentDayScreenTimePrecise(context)
+    }
+
+    private fun buildProgress(
+        plan: ScreenTimePlan,
+        currentUsage: Long,
+        isActive: Boolean,
+        elapsedOverride: Long? = null,
+        remainingOverride: Long? = null,
+        timePercentageOverride: Float? = null
+    ): EvaluationProgress {
+        val start = plan.evaluationStartTime ?: CalendarUtils.getStartOfCurrentDay()
+        val now = System.currentTimeMillis()
+        val elapsed = elapsedOverride ?: max(0L, now - start)
+        val remaining = remainingOverride ?: CalendarUtils.getTimeRemainingInCurrentDay()
+
+        val usagePercentage = if (plan.goalTimeMs > 0) {
+            (currentUsage.toFloat() / plan.goalTimeMs.toFloat()) * Constants.PROGRESS_MAX_PERCENTAGE
+        } else 0f
+
+        val dayDuration = CalendarUtils.getCurrentDayDurationMs()
+        val timeElapsed = elapsedOverride ?: CalendarUtils.getTimeElapsedInCurrentDay()
+        val timePercentage = timePercentageOverride ?: if (dayDuration > 0) {
+            (timeElapsed.toFloat() / dayDuration.toFloat()) * Constants.PROGRESS_MAX_PERCENTAGE
+        } else 0f
+
+        return EvaluationProgress(
+            plan = plan,
+            currentUsageMs = currentUsage,
+            elapsedTimeMs = elapsed,
+            remainingTimeMs = remaining,
+            isActive = isActive,
+            usagePercentage = usagePercentage,
+            timePercentage = timePercentage
+        )
     }
 } 

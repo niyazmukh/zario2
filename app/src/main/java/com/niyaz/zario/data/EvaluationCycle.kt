@@ -1,18 +1,19 @@
 package com.niyaz.zario.data
 
-data class TargetApp(
-    val packageName: String,
-    val appName: String,
+data class ScreenTimePlan(
     val goalTimeMs: Long,
     val dailyAverageMs: Long,
-    val targetSelectedTime: Long = System.currentTimeMillis(),
-    val evaluationStartTime: Long? = null, // Null until evaluation actually starts
-    /** Cumulative foreground time (ms) at the moment evaluation starts – used for delta calculations */
-    val baselineUsageMs: Long = 0L
-)
+    val label: String = DEFAULT_LABEL,
+    val planCreatedAt: Long = System.currentTimeMillis(),
+    val evaluationStartTime: Long? = null
+) {
+    companion object {
+        const val DEFAULT_LABEL = "Daily screen time"
+    }
+}
 
 data class EvaluationProgress(
-    val targetApp: TargetApp,
+    val plan: ScreenTimePlan,
     val currentUsageMs: Long,
     val elapsedTimeMs: Long,
     val remainingTimeMs: Long,
@@ -28,9 +29,7 @@ sealed class EvaluationState {
     data class Active(val progress: EvaluationProgress) : EvaluationState()
     data class Success(val finalProgress: EvaluationProgress) : EvaluationState()
     data class GoalExceeded(val finalProgress: EvaluationProgress) : EvaluationState()
-    data class Completed(val finalProgress: EvaluationProgress) : EvaluationState() // Legacy state
     data class Error(val message: String, val isRetryable: Boolean = true) : EvaluationState()
-    object Paused : EvaluationState() // For when app goes to background
 }
 
 sealed class UsageTrackingResult {

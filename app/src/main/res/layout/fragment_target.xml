@@ -125,6 +125,17 @@
                 android:textColor="?attr/colorOnSurface"
                 tools:text="Used on average 2h 30m a day." />
 
+            <!-- Today's Usage -->
+            <TextView
+                android:id="@+id/tv_today_usage"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/spacing_sm"
+                android:textAppearance="?attr/textAppearanceTitleMedium"
+                android:textColor="?attr/colorOnSurfaceVariant"
+                android:visibility="gone"
+                tools:text="Today's usage so far: 1h 45m" />
+
             <!-- Goal Usage -->
             <TextView
                 android:id="@+id/tv_goal_usage"
@@ -157,7 +168,7 @@
         android:layout_marginTop="@dimen/spacing_xl"
         android:layout_marginBottom="@dimen/spacing_lg"
         android:enabled="false"
-        android:text="@string/confirm_target_selection_disabled"
+    android:text="@string/confirm_goal_selection_disabled"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"

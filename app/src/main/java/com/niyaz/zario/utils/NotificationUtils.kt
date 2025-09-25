@@ -5,12 +5,12 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.TaskStackBuilder
-import com.niyaz.zario.R
-import com.niyaz.zario.data.TargetApp
 import com.niyaz.zario.MainActivity
+import com.niyaz.zario.R
+import com.niyaz.zario.data.ScreenTimePlan
+import com.niyaz.zario.utils.TimeUtils
 // Removed ForegroundInfo imports - no longer using foreground services
 
 object NotificationUtils {
@@ -21,22 +21,20 @@ object NotificationUtils {
     private const val NOTIFICATION_ID_CYCLE_COMPLETE = 1002
 
     private fun ensureChannel(context: Context) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            if (nm.getNotificationChannel(CHANNEL_ID) == null) {
-                val channel = NotificationChannel(
-                    CHANNEL_ID,
-                    CHANNEL_NAME,
-                    NotificationManager.IMPORTANCE_HIGH
-                ).apply {
-                    description = context.getString(R.string.notification_channel_description)
-                }
-                nm.createNotificationChannel(channel)
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        if (nm.getNotificationChannel(CHANNEL_ID) == null) {
+            val channel = NotificationChannel(
+                CHANNEL_ID,
+                CHANNEL_NAME,
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = context.getString(R.string.notification_channel_description)
             }
+            nm.createNotificationChannel(channel)
         }
     }
 
-    fun sendUsageThresholdReached(context: Context, targetApp: TargetApp, goalTimeMs: Long) {
+    fun sendUsageThresholdReached(context: Context, plan: ScreenTimePlan, currentUsageMs: Long) {
         ensureChannel(context)
 
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -45,16 +43,16 @@ object NotificationUtils {
         val intent = Intent(context, MainActivity::class.java)
         val pendingIntent: PendingIntent? = TaskStackBuilder.create(context).run {
             addNextIntentWithParentStack(intent)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                getPendingIntent(0, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-            } else {
-                getPendingIntent(0, PendingIntent.FLAG_UPDATE_CURRENT)
-            }
+            getPendingIntent(0, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         }
 
+        val usageFormatted = TimeUtils.formatTimeForDisplay(context, currentUsageMs)
+        val goalFormatted = TimeUtils.formatTimeForDisplay(context, plan.goalTimeMs)
         val contentText = context.getString(
             R.string.notification_usage_threshold_content,
-            targetApp.appName
+            plan.label,
+            usageFormatted,
+            goalFormatted
         )
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
@@ -84,11 +82,7 @@ object NotificationUtils {
         intent.putExtra("navigate_to", "feedback")
         val pendingIntent: PendingIntent? = TaskStackBuilder.create(context).run {
             addNextIntentWithParentStack(intent)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                getPendingIntent(0, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-            } else {
-                getPendingIntent(0, PendingIntent.FLAG_UPDATE_CURRENT)
-            }
+            getPendingIntent(0, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         }
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
