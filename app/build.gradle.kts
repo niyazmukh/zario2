@@ -7,16 +7,34 @@ plugins {
 
 android {
     namespace = "com.niyaz.zario"
-    compileSdk = 36
+    compileSdk = 34
 
     defaultConfig {
         applicationId = "com.niyaz.zario"
         minSdk = 29
-        targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        targetSdk = 34
+        versionCode = 2
+        versionName = "1.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        
+        // Ensure 16 KB page alignment for Android 15+ compatibility
+        ndk {
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+        }
+    }
+
+    signingConfigs {
+        create("release") {
+            storeFile = file("../keystore/zario-release.jks")
+            val storePwd = System.getenv("ZARIO_KEYSTORE_PASSWORD")
+                ?: throw GradleException("ZARIO_KEYSTORE_PASSWORD environment variable is not set. Do NOT store passwords in source.")
+            val keyPwd = System.getenv("ZARIO_KEY_PASSWORD")
+                ?: throw GradleException("ZARIO_KEY_PASSWORD environment variable is not set. Do NOT store passwords in source.")
+            storePassword = storePwd
+            keyAlias = "zario-release-key"
+            keyPassword = keyPwd
+        }
     }
 
     buildTypes {
@@ -27,6 +45,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.getByName("release")
         }
     }
     compileOptions {
