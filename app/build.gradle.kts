@@ -1,7 +1,29 @@
+import java.util.Properties
+
+fun Project.loadCredential(key: String): String? {
+    val envValue = System.getenv(key)
+    if (!envValue.isNullOrBlank()) return envValue
+
+    val propsFile = rootProject.file("local.properties")
+    if (propsFile.exists()) {
+        val props = Properties()
+        propsFile.inputStream().use { props.load(it) }
+        return props.getProperty(key)
+    }
+
+    return null
+}
+
+fun isReleaseTaskRequested(taskNames: List<String>): Boolean {
+    if (taskNames.isEmpty()) return false
+    return taskNames.any { it.contains("Release", ignoreCase = true) }
+}
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.hilt.android)
+    alias(libs.plugins.google.services)
     kotlin("kapt")
 }
 
@@ -25,15 +47,22 @@ android {
     }
 
     signingConfigs {
-        create("release") {
-            storeFile = file("../keystore/zario-release.jks")
-            val storePwd = System.getenv("ZARIO_KEYSTORE_PASSWORD")
-                ?: throw GradleException("ZARIO_KEYSTORE_PASSWORD environment variable is not set. Do NOT store passwords in source.")
-            val keyPwd = System.getenv("ZARIO_KEY_PASSWORD")
-                ?: throw GradleException("ZARIO_KEY_PASSWORD environment variable is not set. Do NOT store passwords in source.")
-            storePassword = storePwd
-            keyAlias = "zario-release-key"
-            keyPassword = keyPwd
+        val keystoreFile = rootProject.file("keystore/zario-release.jks")
+        val releaseStorePassword = loadCredential("ZARIO_KEYSTORE_PASSWORD")
+        val releaseKeyPassword = loadCredential("ZARIO_KEY_PASSWORD")
+        val releaseCredentialsConfigured = !releaseStorePassword.isNullOrBlank() &&
+            !releaseKeyPassword.isNullOrBlank() &&
+            keystoreFile.exists()
+
+        if (releaseCredentialsConfigured) {
+            create("release") {
+                storeFile = keystoreFile
+                storePassword = releaseStorePassword!!
+                keyAlias = "zario-release-key"
+                keyPassword = releaseKeyPassword!!
+            }
+        } else {
+            logger.lifecycle("Release keystore credentials not detected. Release signing will be configured once credentials are provided via environment variables or local.properties.")
         }
     }
 
@@ -45,7 +74,17 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = signingConfigs.getByName("release")
+
+            val requestedRelease = isReleaseTaskRequested(gradle.startParameter.taskNames)
+            val hasSigningConfig = signingConfigs.findByName("release") != null
+
+            if (hasSigningConfig) {
+                signingConfig = signingConfigs.getByName("release")
+            } else if (requestedRelease) {
+                throw GradleException(
+                    "Release signing credentials are missing. Set ZARIO_KEYSTORE_PASSWORD and ZARIO_KEY_PASSWORD as environment variables or define them in local.properties (untracked)."
+                )
+            }
         }
     }
     compileOptions {
@@ -57,6 +96,7 @@ android {
     }
     buildFeatures {
         viewBinding = true
+        buildConfig = true
     }
     
     // Add this configuration for proper Hilt annotation processing
@@ -66,6 +106,10 @@ android {
 }
 
 dependencies {
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.auth.ktx)
+    implementation(libs.firebase.firestore.ktx)
+    implementation(libs.kotlinx.coroutines.play.services)
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
@@ -89,8 +133,10 @@ dependencies {
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     kapt(libs.androidx.room.compiler)
-
     testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.mockk)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+    androidTestImplementation(libs.androidx.work.testing)
 }

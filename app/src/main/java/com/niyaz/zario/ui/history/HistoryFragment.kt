@@ -1,12 +1,13 @@
 package com.niyaz.zario.ui.history
 
+import android.graphics.Rect
 import android.os.Bundle
-import android.util.Log
 import android.view.LayoutInflater
-import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import androidx.activity.OnBackPressedCallback
+import androidx.core.view.isVisible
+import androidx.core.util.Pair as AndroidPair
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
@@ -14,18 +15,22 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.niyaz.zario.Constants
+import androidx.recyclerview.widget.LinearSnapHelper
+import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.datepicker.CalendarConstraints
+import com.google.android.material.datepicker.CompositeDateValidator
+import com.google.android.material.datepicker.DateValidatorPointBackward
+import com.google.android.material.datepicker.DateValidatorPointForward
+import com.google.android.material.datepicker.MaterialDatePicker
 import com.niyaz.zario.R
 import com.niyaz.zario.databinding.FragmentHistoryBinding
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.niyaz.zario.ui.history.adapter.EvaluationHistoryAdapter
+import com.niyaz.zario.ui.history.adapter.HourlyUsageAdapter
 import com.niyaz.zario.ui.history.adapter.TodayUsageAdapter
-import dagger.hilt.android.AndroidEntryPoint
-import javax.inject.Inject
-import com.niyaz.zario.repository.UserSessionRepository
 import com.niyaz.zario.utils.TimeUtils
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
-import kotlin.math.roundToInt
+import java.time.LocalDate
+import java.time.ZoneId
 
 @AndroidEntryPoint
 class HistoryFragment : Fragment() {
@@ -34,11 +39,10 @@ class HistoryFragment : Fragment() {
     private val binding get() = _binding!!
 
     private val viewModel: HistoryViewModel by viewModels()
-    private lateinit var adapter: EvaluationHistoryAdapter
     private lateinit var todayUsageAdapter: TodayUsageAdapter
-    private var filterOptions: List<String> = emptyList()
-
-    @Inject lateinit var sessionRepository: UserSessionRepository
+    private lateinit var hourlyUsageAdapter: HourlyUsageAdapter
+    private var latestUiState: HistoryViewModel.UsageUiState? = null
+    private val zoneId: ZoneId = ZoneId.systemDefault()
 
     private val backCallback = object : OnBackPressedCallback(true) {
         override fun handleOnBackPressed() {
@@ -62,287 +66,183 @@ class HistoryFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        
-        Log.d(Constants.LOG_TAG_HISTORY_FRAGMENT, "HistoryFragment onViewCreated")
 
         binding.root.isFocusableInTouchMode = true
         binding.root.requestFocus()
 
         setupRecyclerView()
-        setupFilter()
-        observeHistory()
-        observeTodayUsage()
-        
-        // Show loading state initially
-        showLoading()
+        setupHourlyChart()
+        setupListeners()
+        observeUiState()
     }
 
     private fun setupRecyclerView() {
-        adapter = EvaluationHistoryAdapter()
-        todayUsageAdapter = TodayUsageAdapter()
+        todayUsageAdapter = TodayUsageAdapter { entry ->
+            viewModel.togglePackageFilter(entry.packageName)
+        }
         binding.recyclerHistory.apply {
             layoutManager = LinearLayoutManager(requireContext())
-            adapter = this@HistoryFragment.adapter
-            
-            // Add item decoration for better spacing
-            val spacing = resources.getDimensionPixelSize(R.dimen.spacing_xs)
-            addItemDecoration(object : androidx.recyclerview.widget.RecyclerView.ItemDecoration() {
-                override fun getItemOffsets(
-                    outRect: android.graphics.Rect,
-                    view: View,
-                    parent: androidx.recyclerview.widget.RecyclerView,
-                    state: androidx.recyclerview.widget.RecyclerView.State
-                ) {
-                    outRect.bottom = spacing
-                }
-            })
-        }
-
-        binding.recyclerTodayUsage.apply {
-            layoutManager = LinearLayoutManager(requireContext())
             adapter = todayUsageAdapter
-            val spacing = resources.getDimensionPixelSize(R.dimen.spacing_xs)
-            addItemDecoration(object : androidx.recyclerview.widget.RecyclerView.ItemDecoration() {
-                override fun getItemOffsets(
-                    outRect: android.graphics.Rect,
-                    view: View,
-                    parent: androidx.recyclerview.widget.RecyclerView,
-                    state: androidx.recyclerview.widget.RecyclerView.State
-                ) {
-                    outRect.bottom = spacing
-                }
-            })
+            val spacing = resources.getDimensionPixelSize(R.dimen.spacing_sm)
+            if (itemDecorationCount == 0) {
+                addItemDecoration(VerticalSpacingItemDecoration(spacing))
+            }
         }
     }
 
-    private fun setupFilter() {
+    private fun setupHourlyChart() {
+        val maxBarHeight = resources.getDimensionPixelSize(R.dimen.history_hourly_bar_max_height)
+        val minBarHeight = resources.getDimensionPixelSize(R.dimen.spacing_xs)
+        hourlyUsageAdapter = HourlyUsageAdapter(
+            maxBarHeightPx = maxBarHeight,
+            minBarHeightPx = minBarHeight,
+            timeFormatter = { durationMs -> TimeUtils.formatTimeForDisplay(requireContext(), durationMs) }
+        )
+
+        binding.recyclerHourlyChart.apply {
+            layoutManager = LinearLayoutManager(requireContext(), LinearLayoutManager.HORIZONTAL, false)
+            adapter = hourlyUsageAdapter
+            setHasFixedSize(true)
+            val spacing = resources.getDimensionPixelSize(R.dimen.spacing_sm)
+            if (itemDecorationCount == 0) {
+                addItemDecoration(HorizontalSpacingItemDecoration(spacing))
+            }
+            LinearSnapHelper().attachToRecyclerView(this)
+        }
+    }
+
+    private fun setupListeners() {
+        binding.btnDatePicker.setOnClickListener {
+            latestUiState?.let { showDatePicker(it) }
+        }
+    }
+
+    private fun observeUiState() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.history.collect { list ->
-                    updateFilterOptions(list)
-                }
-            }
-        }
-
-        binding.autoFilter.apply {
-            isFocusable = false
-            isFocusableInTouchMode = false
-            isCursorVisible = false
-            keyListener = null
-            setOnClickListener { showFilterSelector() }
-            setOnTouchListener { _, event ->
-                if (event.action == MotionEvent.ACTION_UP) {
-                    showFilterSelector()
-                    return@setOnTouchListener true
-                }
-                false
-            }
-            setOnFocusChangeListener { _, hasFocus ->
-                if (hasFocus) {
-                    clearFocus()
-                }
-            }
-        }
-
-        binding.tilFilter.setEndIconOnClickListener {
-            showFilterSelector()
-        }
-    }
-
-    private fun updateFilterOptions(historyList: List<com.niyaz.zario.data.local.entities.EvaluationHistoryEntry>) {
-        val planLabels = historyList.map { it.planLabel }.distinct().sorted()
-        filterOptions = listOf(getString(R.string.history_filter_all)) + planLabels
-
-        val currentFilter = viewModel.filterLabel.value
-        val resolvedSelection = currentFilter ?: getString(R.string.history_filter_all)
-
-        if (!filterOptions.contains(resolvedSelection)) {
-            viewModel.setFilter(null)
-            binding.autoFilter.setText(getString(R.string.history_filter_all))
-        } else {
-            if (binding.autoFilter.text.toString() != resolvedSelection) {
-                binding.autoFilter.setText(resolvedSelection)
-            }
-        }
-    }
-
-    private fun observeHistory() {
-        viewLifecycleOwner.lifecycleScope.launch {
-            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.history.collect { historyList ->
-                    Log.d(Constants.LOG_TAG_HISTORY_FRAGMENT, "History updated: ${historyList.size} entries")
-
-                    hideLoading()
-                    
-                    if (historyList.isEmpty()) {
-                        showEmptyState()
-                    } else {
-                        showHistoryContent(historyList)
+                viewModel.uiState.collect { state ->
+                    latestUiState = state
+                    todayUsageAdapter.submitList(state.entries) {
+                        todayUsageAdapter.updateSelection(state.selectedPackages)
                     }
-                    
-                    adapter.submitList(historyList)
+                    renderState(state)
                 }
             }
         }
     }
 
-    private fun observeTodayUsage() {
-        viewLifecycleOwner.lifecycleScope.launch {
-            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.todayUsageEntries.collect { entries ->
-                    val totalTextView = binding.tvTodayUsage
-                    val recycler = binding.recyclerTodayUsage
+    private fun renderState(state: HistoryViewModel.UsageUiState) {
+        binding.apply {
+            tvDateRange.text = state.dateLabel
+            val isLoading = state.isLoading
+            progressLoading.isVisible = isLoading
+            tvLoading.isVisible = isLoading
 
-                    if (entries.isEmpty()) {
-                        totalTextView.visibility = View.GONE
-                        recycler.visibility = View.GONE
-                        todayUsageAdapter.submitList(emptyList())
-                        return@collect
-                    }
-
-                    val totalDuration = entries.sumOf { it.durationMs }
-                    val formattedTotal = TimeUtils.formatTimeForDisplay(requireContext(), totalDuration)
-                    totalTextView.text = getString(R.string.history_stats_today_usage, formattedTotal)
-                    totalTextView.visibility = View.VISIBLE
-
-                    recycler.visibility = View.VISIBLE
-                    todayUsageAdapter.submitList(entries)
-
-                    // Ensure the statistics card is visible even if history list is empty
-                    if (binding.cardStatistics.visibility != View.VISIBLE) {
-                        binding.cardStatistics.visibility = View.VISIBLE
-                    }
-                }
+            if (!isLoading) {
+                hourlyUsageAdapter.submitData(state.hourlyUsage, state.maxHourlyDurationMs)
             }
+
+            recyclerHourlyChart.isVisible = !isLoading && !state.chartEmpty
+            tvChartEmpty.isVisible = !isLoading && state.chartEmpty
+
+            val hasEntries = state.entries.isNotEmpty()
+            recyclerHistory.isVisible = !isLoading && hasEntries
+            layoutEmpty.isVisible = !isLoading && !hasEntries
         }
     }
 
-    private fun showLoading() {
-        binding.apply {
-            progressLoading.visibility = View.VISIBLE
-            tvLoading.visibility = View.VISIBLE
-            recyclerHistory.visibility = View.GONE
-            layoutEmpty.visibility = View.GONE
-            cardStatistics.visibility = View.GONE
-        }
-    }
-
-    private fun hideLoading() {
-        binding.apply {
-            progressLoading.visibility = View.GONE
-            tvLoading.visibility = View.GONE
-        }
-    }
-
-    private fun showEmptyState() {
-    val isFiltered = viewModel.filterLabel.value != null
-        
-        binding.apply {
-            recyclerHistory.visibility = View.GONE
-            layoutEmpty.visibility = View.VISIBLE
-            cardStatistics.visibility = View.GONE
-            
-            if (isFiltered) {
-                tvEmptyTitle.text = getString(R.string.history_empty_filtered)
-                tvEmptyDescription.text = getString(R.string.history_empty_filtered_description)
-            } else {
-                tvEmptyTitle.text = getString(R.string.history_empty)
-                tvEmptyDescription.text = getString(R.string.history_empty_description)
-            }
-        }
-    }
-
-    private fun showHistoryContent(historyList: List<com.niyaz.zario.data.local.entities.EvaluationHistoryEntry>) {
-        binding.apply {
-            recyclerHistory.visibility = View.VISIBLE
-            layoutEmpty.visibility = View.GONE
-        }
-        
-        // Show statistics if we have data
-        showStatistics(historyList)
-    }
-
-    private fun showStatistics(historyList: List<com.niyaz.zario.data.local.entities.EvaluationHistoryEntry>) {
-        if (historyList.isEmpty()) {
-            binding.cardStatistics.visibility = View.GONE
-            return
-        }
-        
-        val totalCycles = historyList.size
-        val successfulCycles = historyList.count { it.metGoal }
-        val successRate = if (totalCycles > 0) {
-            ((successfulCycles.toFloat() / totalCycles.toFloat()) * 100).roundToInt()
-        } else 0
-        
-        val points = sessionRepository.session.value.user?.points ?: 100
-        binding.apply {
-            cardStatistics.visibility = View.VISIBLE
-            tvTotalCycles.text = getString(R.string.history_stats_total_cycles, totalCycles)
-            tvSuccessRate.text = getString(R.string.history_stats_success_rate, successRate)
-            tvTotalPointsRight.text = getString(R.string.total_points_format, points)
-        }
-        
-        Log.d(Constants.LOG_TAG_HISTORY_FRAGMENT, 
-            "Statistics: $totalCycles total, $successfulCycles successful, $successRate% success rate")
-    }
-
-    private fun showFilterSelector() {
-        if (!isAdded || !viewLifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+    private fun showDatePicker(state: HistoryViewModel.UsageUiState) {
+        if (childFragmentManager.findFragmentByTag(DATE_PICKER_TAG) != null) {
             return
         }
 
-        val options = filterOptions
-        if (options.isEmpty()) {
-            return
-        }
+        val limits = state.dateLimits
+        val builder = MaterialDatePicker.Builder.dateRangePicker()
+            .setTitleText(R.string.history_date_picker_title)
 
-        val currentSelection = binding.autoFilter.text.toString()
-        val checkedIndex = options.indexOf(currentSelection).takeIf { it >= 0 } ?: 0
+        val startMillis = limits.min.startOfDayMillis(zoneId)
+        val endMillisExclusive = limits.max.plusDays(1).startOfDayMillis(zoneId)
+        val validators = listOf(
+            DateValidatorPointForward.from(startMillis),
+            DateValidatorPointBackward.before(endMillisExclusive)
+        )
+        val constraints = CalendarConstraints.Builder()
+            .setStart(startMillis)
+            .setEnd(endMillisExclusive - 1)
+            .setValidator(CompositeDateValidator.allOf(validators))
+            .build()
 
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle(R.string.history_filter_dialog_title)
-            .setSingleChoiceItems(options.toTypedArray(), checkedIndex) { dialog, which ->
-                applyFilterSelection(options[which])
-                dialog.dismiss()
+        val currentRange = state.dateRange
+        val currentSelection = AndroidPair(
+            currentRange.start.startOfDayMillis(zoneId),
+            currentRange.end.startOfDayMillis(zoneId)
+        )
+
+        val picker = builder
+            .setCalendarConstraints(constraints)
+            .setSelection(currentSelection)
+            .build()
+
+        picker.addOnPositiveButtonClickListener { selection ->
+            selection?.let {
+                if (it.first != null && it.second != null) {
+                    viewModel.onDateRangeSelected(it.first!!, it.second!!)
+                }
             }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
-    }
-
-    private fun applyFilterSelection(selection: String) {
-        if (selection == getString(R.string.history_filter_all)) {
-            viewModel.setFilter(null)
-        } else {
-            viewModel.setFilter(selection)
         }
 
-        binding.autoFilter.setText(selection)
-        clearFilterFocus()
-    }
-
-    private fun clearFilterFocus() {
-        _binding?.autoFilter?.clearFocus()
+        picker.show(childFragmentManager, DATE_PICKER_TAG)
     }
 
     override fun onResume() {
         super.onResume()
-        viewModel.refreshTodayTotals()
-    }
-
-    override fun onPause() {
-        clearFilterFocus()
-        super.onPause()
-    }
-
-    override fun onStop() {
-        clearFilterFocus()
-        super.onStop()
+        viewModel.refreshCurrentRange()
     }
 
     override fun onDestroyView() {
-        clearFilterFocus()
         super.onDestroyView()
-        Log.d(Constants.LOG_TAG_HISTORY_FRAGMENT, "HistoryFragment onDestroyView")
+        if (isRemoving || activity?.isFinishing == true) {
+            viewModel.resetFilters()
+        }
         _binding = null
+    }
+
+    private fun LocalDate.startOfDayMillis(zone: ZoneId): Long =
+        this.atStartOfDay(zone).toInstant().toEpochMilli()
+
+    private class VerticalSpacingItemDecoration(
+        private val spacing: Int
+    ) : RecyclerView.ItemDecoration() {
+        override fun getItemOffsets(
+            outRect: Rect,
+            view: View,
+            parent: RecyclerView,
+            state: RecyclerView.State
+        ) {
+            if (parent.getChildAdapterPosition(view) > 0) {
+                outRect.top = spacing
+            }
+        }
+    }
+
+    private class HorizontalSpacingItemDecoration(
+        private val spacing: Int
+    ) : RecyclerView.ItemDecoration() {
+        override fun getItemOffsets(
+            outRect: Rect,
+            view: View,
+            parent: RecyclerView,
+            state: RecyclerView.State
+        ) {
+            val position = parent.getChildAdapterPosition(view)
+            if (position == 0) {
+                outRect.left = spacing
+            }
+            outRect.right = spacing
+        }
+    }
+
+    private companion object {
+        const val DATE_PICKER_TAG = "history_date_picker"
     }
 } 

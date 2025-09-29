@@ -2,25 +2,25 @@ package com.niyaz.zario
 
 import android.app.Application
 import android.util.Log
-import androidx.work.Configuration
-import androidx.work.WorkManager
-import androidx.work.ExistingWorkPolicy
-import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.OutOfQuotaPolicy
-import dagger.hilt.android.HiltAndroidApp
-import javax.inject.Inject
 import androidx.hilt.work.HiltWorkerFactory
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import androidx.work.Configuration
+import com.niyaz.zario.core.evaluation.EvaluationRepository
+import com.niyaz.zario.worker.MonitoringWorkScheduler
+import com.niyaz.zario.firebase.FirebaseAuthInitializer
+import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.launch
-import com.niyaz.zario.worker.MonitoringSchedulerWorker
-import com.niyaz.zario.repository.EvaluationRepository
+import javax.inject.Inject
+import com.niyaz.zario.di.ApplicationScope
+import kotlinx.coroutines.CoroutineScope
 
 @HiltAndroidApp
 class ZarioApp : Application(), Configuration.Provider {
 
     @Inject lateinit var workerFactory: HiltWorkerFactory
     @Inject lateinit var evaluationRepository: EvaluationRepository
+    @Inject @ApplicationScope lateinit var applicationScope: CoroutineScope
+    @Inject lateinit var monitoringWorkScheduler: MonitoringWorkScheduler
+    @Inject lateinit var firebaseAuthInitializer: FirebaseAuthInitializer
 
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
@@ -32,28 +32,20 @@ class ZarioApp : Application(), Configuration.Provider {
         super.onCreate()
         
         // Manually initialize WorkManager with our custom configuration
-        WorkManager.initialize(this, workManagerConfiguration)
-        
-        Log.i("ZarioApp", "Application created with WorkManager initialized using HiltWorkerFactory")
-        
+        Log.i("ZarioApp", "Application created; WorkManager configured via Configuration.Provider")
+
+    firebaseAuthInitializer.initialize()
+
         // CRITICAL: Boot-time recovery for process kills
         // If there's an active evaluation when the app starts, restart monitoring
-        CoroutineScope(Dispatchers.IO).launch {
+        applicationScope.launch {
             val currentPlan = evaluationRepository.getCurrentPlan()
             if (currentPlan?.evaluationStartTime != null && !evaluationRepository.isEvaluationCompleted()) {
                 Log.i("ZarioApp", "Boot recovery: Restarting monitoring for active evaluation (${currentPlan.label})")
                 
                 // Restart monitoring scheduler immediately
-                val recoveryScheduler = OneTimeWorkRequestBuilder<MonitoringSchedulerWorker>()
-                    .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
-                    .build()
-                
-                WorkManager.getInstance(this@ZarioApp).enqueueUniqueWork(
-                    MonitoringSchedulerWorker.WORK_NAME,
-                    ExistingWorkPolicy.REPLACE,
-                    recoveryScheduler
-                )
-                
+                monitoringWorkScheduler.enqueueScheduler()
+
                 Log.i("ZarioApp", "Boot recovery: Monitoring scheduler restarted successfully")
                     }
         }

@@ -19,8 +19,8 @@ data class EvaluationProgress(
     val remainingTimeMs: Long,
     val isActive: Boolean = true,
     val timestamp: Long = System.currentTimeMillis(),
-    val usagePercentage: Float = 0f, // Usage vs goal percentage
-    val timePercentage: Float = 0f   // Time elapsed percentage
+    val usagePercentage: Float = 0f,
+    val timePercentage: Float = 0f
 )
 
 sealed class EvaluationState {
@@ -36,4 +36,4 @@ sealed class UsageTrackingResult {
     data class Success(val usageMs: Long) : UsageTrackingResult()
     data class Error(val message: String, val isRetryable: Boolean = true) : UsageTrackingResult()
     object NoData : UsageTrackingResult()
-} 
+}

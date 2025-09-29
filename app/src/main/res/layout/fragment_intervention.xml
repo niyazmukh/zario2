@@ -17,7 +17,7 @@
             android:id="@+id/btn_menu"
             android:layout_width="@dimen/menu_button_size"
             android:layout_height="@dimen/menu_button_size"
-            android:layout_marginTop="@dimen/spacing_xxl"
+            android:layout_marginTop="@dimen/spacing_xl"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="@string/menu_button_content_description"
             android:scaleType="center"
@@ -74,7 +74,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:gravity="center"
-            android:textAppearance="?attr/textAppearanceHeadlineMedium"
+            android:textAppearance="?attr/textAppearanceTitleLarge"
             android:textColor="?attr/colorOnSurface"
             android:text="@string/current_usage_placeholder"
             app:layout_constraintBottom_toBottomOf="@id/progress_indicator"
@@ -82,95 +82,81 @@
             app:layout_constraintStart_toStartOf="@id/progress_indicator"
             app:layout_constraintTop_toTopOf="@id/progress_indicator" />
 
-        <!-- Condition Points Info (below circular progress) -->
-        <TextView
-            android:id="@+id/tv_condition_points"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/spacing_xl"
-            android:gravity="center"
-            android:textAppearance="?attr/textAppearanceTitleLarge"
-            android:textStyle="italic"
-            android:textColor="?attr/colorOnSurfaceVariant"
-            android:visibility="gone"
-            tools:text="Earn 20 points if succeed,\nlose 20 points if fail"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/progress_indicator" />
-
         <!-- Progress Text -->
         <TextView
             android:id="@+id/progress_text"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/spacing_xl"
-            android:gravity="center"
+            android:layout_marginTop="@dimen/spacing_md"
+            android:gravity="center_horizontal"
             android:text="@string/evaluation_preparing"
-            android:textAppearance="?attr/textAppearanceBodyLarge"
-            android:textColor="?attr/colorOnSurface"
+            android:textAppearance="?attr/textAppearanceBodyMedium"
+            android:textColor="?attr/colorOnSurfaceVariant"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/tv_condition_points" />
+            app:layout_constraintTop_toBottomOf="@id/progress_indicator" />
 
         <!-- Usage Stats Card -->
-        <com.google.android.material.card.MaterialCardView
+        <LinearLayout
             android:id="@+id/stats_card"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/spacing_xxl"
-            app:cardCornerRadius="@dimen/card_corner_radius"
-            app:cardElevation="@dimen/card_elevation"
-            app:cardBackgroundColor="@android:color/transparent"
-            app:strokeColor="?attr/colorOutline"
-            app:strokeWidth="@dimen/card_stroke_width"
+            android:orientation="vertical"
+            android:padding="@dimen/spacing_md"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/progress_text">
 
-            <LinearLayout
+            <!-- Goal Time -->
+            <TextView
+                android:id="@+id/tv_goal_time"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="@dimen/spacing_md">
+                android:textAppearance="?attr/textAppearanceTitleLarge"
+                android:textColor="?attr/colorPrimary"
+                android:text="@string/goal_time_placeholder" />
 
-                <!-- Goal Time -->
-                <TextView
-                    android:id="@+id/tv_goal_time"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="center"
-                    android:textAppearance="?attr/textAppearanceTitleMedium"
-                    android:textColor="?attr/colorPrimary"
-                    android:text="@string/goal_time_placeholder" />
+            <!-- Time Remaining -->
+            <TextView
+                android:id="@+id/tv_time_remaining"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/spacing_md"
+                android:textAppearance="?attr/textAppearanceTitleLarge"
+                android:textColor="?attr/colorOnSurfaceVariant"
+                android:text="@string/time_remaining_placeholder" />
 
-                <!-- Time Remaining -->
-                <TextView
-                    android:id="@+id/tv_time_remaining"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="@dimen/spacing_sm"
-                    android:gravity="center"
-                    android:textAppearance="?attr/textAppearanceBodyLarge"
-                    android:textColor="?attr/colorOnSurfaceVariant"
-                    android:text="@string/time_remaining_placeholder" />
 
-            </LinearLayout>
+            <!-- Total Points -->
+            <TextView
+                android:id="@+id/tv_total_points"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/spacing_md"
+                android:textAppearance="?attr/textAppearanceTitleLarge"
+                android:textColor="?attr/colorOnSurfaceVariant"
+                android:text="@string/total_points_format"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/stats_card" />
 
-        </com.google.android.material.card.MaterialCardView>
+        </LinearLayout>
 
-        <!-- Total Points -->
+        <!-- Total Points
         <TextView
             android:id="@+id/tv_total_points"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/spacing_md"
-            android:gravity="center"
-            android:textAppearance="?attr/textAppearanceBodyLarge"
-            android:textColor="?attr/colorOnSurface"
+            android:layout_marginBottom="@dimen/spacing_lg"
+            android:gravity="center_horizontal"
+            android:textAppearance="?attr/textAppearanceBodyMedium"
+            android:textColor="?attr/colorOnSurfaceVariant"
             android:text="@string/total_points_format"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/stats_card" />
+            app:layout_constraintTop_toBottomOf="@id/stats_card" /> -->
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 

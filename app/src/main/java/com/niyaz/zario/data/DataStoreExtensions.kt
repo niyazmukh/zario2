@@ -8,4 +8,4 @@ import androidx.datastore.preferences.preferencesDataStore
  */
 val Context.userSessionDataStore by preferencesDataStore(name = "user_session_prefs")
 
-val Context.evaluationDataStore by preferencesDataStore(name = "evaluation_prefs") 
+val Context.evaluationDataStore by preferencesDataStore(name = "evaluation_prefs")

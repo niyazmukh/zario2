@@ -26,7 +26,7 @@ The pipeline and research methodology are described in detail in [`docs/screen_t
 - **Tech stack**: Kotlin, Gradle Kotlin DSL, AndroidX, Material Design 3.
 - **Architecture pattern**: MVVM with reactive state flows.
 - **Dependency injection**: Hilt for application, worker, and ViewModel graphs.
-- **Persistence**: Room for structured data, DataStore Preferences for lightweight key–value storage.
+- **Persistence**: Room for structured data, DataStore Preferences for lightweight key–value storage, hashed user IDs for all persisted records.
 - **Background work**: WorkManager orchestrates long-running monitoring and intervention scheduling.
 - **Navigation**: Jetpack Navigation Component powers a multi-module flow with deep links.
 
@@ -35,6 +35,16 @@ Key layers:
 2. **Domain & presentation** (`ui/`, `viewmodels/`) – Exposes stateful flows consumed by fragments.
 3. **Workers** (`worker/`) – Schedule periodic monitoring and notification dispatch.
 4. **Utilities** (`utils/`) – Centralised helpers for usage stats, calendar logic, and notifications.
+
+---
+
+## 🗃️ Data Storage Model
+- **`user_session_prefs` (DataStore)** – Stores the active profile (email, hashed `userId`, cohort assignment, flexible stakes, credential hash) and real-time points balance.
+- **`evaluation_prefs` (DataStore)** – Tracks the in-progress plan snapshot, notification thresholds, completion flags, and next-cycle scheduling metadata.
+- **`evaluation_history` (Room)** – Append-only log of daily cycles with `userId`, goal configuration, completion status, and per-cycle points delta/balance for longitudinal analysis.
+- **`hourly_app_usage` (Room)** – Hourly buckets of per-app usage for each user/cycle, enabling reconstruction of timelines like “apps used between 13:00–13:59”.
+
+Every persistent record now carries a stable hashed `userId`, making local data ready for future Firestore synchronisation without exposing raw email addresses.
 
 ---
 

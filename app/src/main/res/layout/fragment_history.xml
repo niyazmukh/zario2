@@ -35,117 +35,78 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/tv_title" />
 
-    <!-- Statistics Card -->
-    <com.google.android.material.card.MaterialCardView
-        android:id="@+id/card_statistics"
+    <LinearLayout
+        android:id="@+id/layout_date_picker"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginTop="@dimen/spacing_xxl"
-        android:visibility="gone"
-        app:cardCornerRadius="@dimen/card_corner_radius"
-        app:cardElevation="@dimen/card_elevation"
-        app:cardBackgroundColor="@android:color/transparent"
-        app:strokeWidth="@dimen/card_stroke_width"
+        android:layout_marginTop="@dimen/spacing_xl"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="@dimen/spacing_md"
+        android:paddingEnd="@dimen/spacing_md"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/tv_subtitle">
 
-        <LinearLayout
-            android:layout_width="match_parent"
+        <TextView
+            android:id="@+id/tv_date_range"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:padding="@dimen/spacing_md">
+            android:layout_weight="1"
+            android:textAppearance="?attr/textAppearanceBodyLarge"
+            android:textColor="?attr/colorOnSurface"
+            android:textStyle="bold"
+            tools:text="Sep 22 – Sep 28" />
 
-            <!-- Statistics Row -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center">
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_date_picker"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:contentDescription="@string/history_date_picker_content_description"
+            android:text="@string/history_date_picker_button" />
 
-                <!-- Total Cycles -->
-                <TextView
-                    android:id="@+id/tv_total_cycles"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:gravity="center"
-                    android:textAppearance="?attr/textAppearanceBodyMedium"
-                    android:textColor="?attr/colorOnSurfaceVariant"
-                    tools:text="Cycles: 5" />
+    </LinearLayout>
 
-                <!-- Total Points -->
-                <TextView
-                    android:id="@+id/tv_total_points_right"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:gravity="center"
-                    android:textAppearance="?attr/textAppearanceBodyMedium"
-                    android:textColor="?attr/colorPrimary"
-                    tools:text="Total points: 500" />
-
-                <!-- Success Rate -->
-                <TextView
-                    android:id="@+id/tv_success_rate"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:gravity="center"
-                    android:textAppearance="?attr/textAppearanceBodyMedium"
-                    android:textColor="?attr/colorOnSurface"
-                    tools:text="Success: 80%" />
-
-            </LinearLayout>
-
-            <Space
-                android:layout_width="match_parent"
-                android:layout_height="@dimen/spacing_md" />
-
-            <TextView
-                android:id="@+id/tv_today_usage"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:gravity="center"
-                android:textAppearance="?attr/textAppearanceBodyMedium"
-                android:textColor="?attr/colorOnSurfaceVariant"
-                android:visibility="gone"
-                tools:text="Today: 3h 20m" />
-
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/recycler_today_usage"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/spacing_sm"
-                android:nestedScrollingEnabled="false"
-                android:visibility="gone"
-                tools:itemCount="3"
-                tools:listitem="@layout/item_today_usage_entry" />
-
-        </LinearLayout>
-
-    </com.google.android.material.card.MaterialCardView>
-
-    <!-- Filter Section -->
-    <com.google.android.material.textfield.TextInputLayout
-        android:id="@+id/til_filter"
-        style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
-        android:layout_width="0dp"
+    <TextView
+        android:id="@+id/tv_chart_title"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="@dimen/spacing_xxl"
-        android:hint="@string/history_filter_hint"
+        android:layout_marginTop="@dimen/spacing_lg"
+        android:text="@string/history_chart_title"
+        android:textAppearance="?attr/textAppearanceTitleSmall"
+        android:textColor="?attr/colorOnSurface"
+        android:textStyle="bold"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/layout_date_picker" />
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recycler_hourly_chart"
+        android:layout_width="0dp"
+        android:layout_height="@dimen/history_hourly_chart_height"
+        android:layout_marginTop="@dimen/spacing_md"
+        android:clipToPadding="false"
+        android:overScrollMode="never"
+        android:paddingStart="@dimen/spacing_md"
+        android:paddingEnd="@dimen/spacing_md"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/card_statistics">
+        app:layout_constraintTop_toBottomOf="@id/tv_chart_title"
+        tools:listitem="@layout/item_hourly_usage"
+        tools:itemCount="6" />
 
-        <com.google.android.material.textfield.MaterialAutoCompleteTextView
-            android:id="@+id/auto_filter"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:inputType="none"
-            android:contentDescription="@string/history_filter_accessibility_description" />
-
-    </com.google.android.material.textfield.TextInputLayout>
+    <TextView
+        android:id="@+id/tv_chart_empty"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/spacing_sm"
+        android:text="@string/history_chart_empty"
+        android:textAppearance="?attr/textAppearanceBodyMedium"
+        android:textColor="?attr/colorOnSurfaceVariant"
+        android:visibility="gone"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/recycler_hourly_chart" />
 
     <!-- Loading Progress -->
     <com.google.android.material.progressindicator.CircularProgressIndicator
@@ -158,7 +119,7 @@
         android:visibility="gone"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/til_filter" />
+    app:layout_constraintTop_toBottomOf="@id/layout_date_picker" />
 
     <!-- Loading Text -->
     <TextView
@@ -185,8 +146,9 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/til_filter"
-        tools:listitem="@layout/item_history_entry" />
+        app:layout_constraintTop_toBottomOf="@id/tv_chart_empty"
+        tools:itemCount="4"
+        tools:listitem="@layout/item_today_usage_entry" />
 
     <!-- Empty State -->
     <LinearLayout
@@ -199,7 +161,7 @@
         android:visibility="gone"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/til_filter">
+        app:layout_constraintTop_toBottomOf="@id/tv_chart_empty">
 
         <!-- Empty State Title -->
         <TextView

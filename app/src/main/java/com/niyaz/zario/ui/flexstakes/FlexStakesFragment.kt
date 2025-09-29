@@ -11,9 +11,8 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import com.google.android.material.snackbar.Snackbar
-import com.google.android.material.slider.Slider
-import com.niyaz.zario.R
 import com.niyaz.zario.Constants
+import com.niyaz.zario.R
 import com.niyaz.zario.databinding.FragmentFlexstakesBinding
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch

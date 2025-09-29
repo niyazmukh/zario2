@@ -1,7 +1,5 @@
 package com.niyaz.zario.ui.target
 
-import android.app.AppOpsManager
-import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.provider.Settings
@@ -12,14 +10,15 @@ import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
-import androidx.work.WorkManager
 import com.niyaz.zario.Constants
 import com.niyaz.zario.R
 import com.niyaz.zario.data.ScreenTimePlan
 import com.niyaz.zario.databinding.FragmentTargetBinding
-import com.niyaz.zario.repository.EvaluationRepository
+import com.niyaz.zario.permissions.PermissionsManager
+import com.niyaz.zario.core.evaluation.EvaluationRepository
 import com.niyaz.zario.utils.TimeUtils
 import com.niyaz.zario.utils.UsageStatsUtils
+import com.niyaz.zario.worker.MonitoringWorkScheduler
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import kotlin.math.max
@@ -35,6 +34,8 @@ class TargetFragment : Fragment() {
     private val binding get() = _binding!!
 
     @Inject lateinit var evaluationRepository: EvaluationRepository
+    @Inject lateinit var permissionsManager: PermissionsManager
+    @Inject lateinit var monitoringWorkScheduler: MonitoringWorkScheduler
 
     private var todayUsageMs: Long = 0L
     private var trailingAverageMs: Long = 0L
@@ -52,6 +53,10 @@ class TargetFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        binding.root.isFocusableInTouchMode = true
+        binding.root.requestFocus()
+
         setupClickListeners()
         loadUsageData()
     }
@@ -76,7 +81,8 @@ class TargetFragment : Fragment() {
     }
 
     private fun refreshPermissionState() {
-        if (!hasUsageStatsPermission()) {
+        val hasUsagePermission = permissionsManager.hasUsageStatsPermission(forceRefresh = true)
+        if (!hasUsagePermission) {
             showPermissionRequired()
         } else if (binding.progressBar.visibility != View.VISIBLE && todayUsageMs == 0L) {
             loadUsageData()
@@ -84,7 +90,7 @@ class TargetFragment : Fragment() {
     }
 
     private fun loadUsageData() {
-        if (!hasUsageStatsPermission()) {
+        if (!permissionsManager.hasUsageStatsPermission(forceRefresh = true)) {
             showPermissionRequired()
             return
         }
@@ -93,7 +99,7 @@ class TargetFragment : Fragment() {
 
         viewLifecycleOwner.lifecycleScope.launch {
             val usageSummary = withContext(Dispatchers.IO) {
-                UsageStatsUtils.getGlobalUsageSummary(requireContext(), Constants.USAGE_ANALYSIS_DAYS)
+                UsageStatsUtils.getGlobalUsageSummary(requireContext())
             }
 
             todayUsageMs = usageSummary.todayUsageMs
@@ -133,8 +139,6 @@ class TargetFragment : Fragment() {
         binding.apply {
             progressBar.visibility = View.VISIBLE
             textViewLoading.visibility = View.VISIBLE
-            recyclerViewApps.visibility = View.GONE
-            tvSectionTitle.visibility = View.GONE
             textViewError.visibility = View.GONE
             buttonRetry.visibility = View.GONE
             buttonGrantPermission.visibility = View.GONE
@@ -151,8 +155,6 @@ class TargetFragment : Fragment() {
         binding.apply {
             progressBar.visibility = View.GONE
             textViewLoading.visibility = View.GONE
-            recyclerViewApps.visibility = View.GONE
-            tvSectionTitle.visibility = View.GONE
             textViewError.visibility = View.GONE
             buttonRetry.visibility = View.GONE
             buttonGrantPermission.visibility = View.GONE
@@ -186,8 +188,6 @@ class TargetFragment : Fragment() {
         binding.apply {
             progressBar.visibility = View.GONE
             textViewLoading.visibility = View.GONE
-            recyclerViewApps.visibility = View.GONE
-            tvSectionTitle.visibility = View.GONE
             cardGoalSummary.visibility = View.GONE
             textViewError.visibility = View.VISIBLE
             textViewError.text = getString(R.string.usage_stats_permission_required_analyze)
@@ -201,8 +201,6 @@ class TargetFragment : Fragment() {
         binding.apply {
             progressBar.visibility = View.GONE
             textViewLoading.visibility = View.GONE
-            recyclerViewApps.visibility = View.GONE
-            tvSectionTitle.visibility = View.GONE
             cardGoalSummary.visibility = View.GONE
             textViewError.visibility = View.VISIBLE
             textViewError.text = message
@@ -213,24 +211,29 @@ class TargetFragment : Fragment() {
     }
 
     private fun confirmPlan() {
-        try {
-            val plan = ScreenTimePlan(
-                goalTimeMs = recommendedGoalMs,
-                dailyAverageMs = baselineUsageMs,
-                label = ScreenTimePlan.DEFAULT_LABEL,
-                planCreatedAt = System.currentTimeMillis(),
-                evaluationStartTime = null
-            )
+        val plan = ScreenTimePlan(
+            goalTimeMs = recommendedGoalMs,
+            dailyAverageMs = baselineUsageMs,
+            planCreatedAt = System.currentTimeMillis()
+        )
 
-            WorkManager.getInstance(requireContext())
-                .cancelUniqueWork(com.niyaz.zario.worker.UsageMonitoringWorker.WORK_NAME)
+        // Cancel any existing monitoring work immediately.
+    monitoringWorkScheduler.cancelMonitoring()
+    monitoringWorkScheduler.cancelScheduler()
 
-            evaluationRepository.savePlan(plan)
+        // Save the plan from a coroutine since savePlan is suspend.
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    evaluationRepository.savePlan(plan)
+                }
 
-            findNavController().navigate(R.id.action_target_to_intervention)
-        } catch (e: Exception) {
-            Log.e(Constants.LOG_TAG_TARGET_FRAGMENT, "Failed to save screen-time plan", e)
-            showError(getString(R.string.error_setting_plan))
+                // Navigate on the main thread after successful save.
+                findNavController().navigate(R.id.action_target_to_intervention)
+            } catch (e: Exception) {
+                Log.e(Constants.LOG_TAG_TARGET_FRAGMENT, "Failed to save screen-time plan", e)
+                showError(getString(R.string.error_setting_plan))
+            }
         }
     }
 
@@ -245,18 +248,12 @@ class TargetFragment : Fragment() {
         }
     }
 
-    private fun hasUsageStatsPermission(): Boolean {
-        val appOpsManager = requireContext().getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
-        val mode = appOpsManager.checkOpNoThrow(
-            AppOpsManager.OPSTR_GET_USAGE_STATS,
-            android.os.Process.myUid(),
-            requireContext().packageName
-        )
-        return mode == AppOpsManager.MODE_ALLOWED
-    }
-
     private fun requestUsageStatsPermission() {
-        startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
+        if (!permissionsManager.hasUsageStatsPermission(forceRefresh = true)) {
+            startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
+        } else {
+            refreshPermissionState()
+        }
     }
 
     override fun onDestroyView() {
