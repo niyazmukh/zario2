@@ -12,7 +12,7 @@
     <string name="gender_hint">Gender</string>
     <string name="login_button">Sign in</string>
     <string name="signup_button">Create account</string>
-    <string name="forgot_password">Forgot password?</string>
+
     <string name="no_account">Don\'t have an account?</string>
     <string name="already_have_account">Already have an account?</string>
     <string name="sign_up_link">Sign up</string>
@@ -44,11 +44,11 @@
     <string name="permission_denied">Grant</string>
     
     <!-- Target Screen -->
-    <string name="choose_target_app">Most used apps</string>
-    <string name="target_subtitle">in the past 7 days.\nSelect the app you want to use less.</string>
-    <string name="analyzing_usage">Analyzing your app usage…</string>
-    <string name="loading_apps">Loading your most used apps</string>
-    <string name="top_apps_title">Your Most Used Apps (Past Week)</string>
+    <string name="choose_target_app">Set your goal</string>
+    <string name="target_subtitle">We analyzed your recent screen time to recommend a healthy target</string>
+    <string name="analyzing_usage">Analyzing your screen time…</string>
+    <string name="loading_apps">Loading your usage insights</string>
+    <string name="top_apps_title">Today’s screen time summary</string>
     <string name="daily_average">Daily Average</string>
     <string name="total_time">Total: %1$s</string>
     <string name="avg_time">Avg: %1$s/day</string>
@@ -59,16 +59,18 @@
     <string name="app_usage_error">Error loading app usage data</string>
     
     <!-- Goal Summary -->
-    <string name="goal_summary_usage">Daily average: %1$s</string>
-    <string name="goal_summary_target">Goal: less than %1$s</string>
-    <string name="goal_reduction_percentage">That\'s a %1$d%% reduction from current usage.</string>
-    <string name="confirm_target_selection">Commit to the goal</string>
-    <string name="confirm_target_selection_disabled">Select an app</string>
+    <string name="goal_summary_usage">Past 7-day average: %1$s</string>
+    <string name="goal_summary_target">Goal: stay under %1$s</string>
+    <string name="goal_reduction_percentage">That\'s a %1$d%% reduction from your average.</string>
+    <string name="goal_summary_today_usage">Today\'s usage so far: %1$s</string>
+    <string name="goal_summary_estimated_usage">We couldn\'t detect today\'s usage yet, so we\'ll start you with a minimal goal. You can adjust it later.</string>
+    <string name="confirm_goal_selection">Save this goal</string>
+    <string name="confirm_goal_selection_disabled">Review your goal first</string>
     
     <!-- Time formatting -->
-    <string name="time_hours_minutes">%1$dh %2$dm</string>
-    <string name="time_minutes">%1$dm</string>
-    <string name="time_seconds">%1$ds</string>
+    <string name="time_format_hours_minutes">%1$dh %2$dm</string>
+    <string name="time_format_minutes_only">%1$dm</string>
+    <string name="time_format_seconds_only">%1$ds</string>
     
     <!-- Validation -->
     <string name="error_empty_email">Email is required</string>
@@ -84,6 +86,10 @@
     <string name="auth_signing_in">Signing in…</string>
     <string name="auth_creating_account">Creating account…</string>
     <string name="auth_invalid_credentials">Invalid email or password</string>
+    <string name="auth_error_email_in_use">An account with this email already exists</string>
+    <string name="auth_error_weak_password">Your password is too weak. Please choose a stronger one</string>
+    <string name="auth_error_network">We could not reach the server. Check your connection and try again</string>
+    <string name="auth_error_generic">Something went wrong. Please try again</string>
     
     <!-- Permission Messages -->
     <string name="permission_usage_access_guide">Please find and enable Zario in Usage Access settings</string>
@@ -108,10 +114,7 @@
     <string name="app_usage_card_content_description">%1$s app, %2$s total usage, %3$s daily average. Tap to select as target.</string>
 
     <!-- Time formatting strings -->
-    <string name="time_format_hours_minutes">%1$dh %2$dm</string>
     <string name="time_format_hours_only">%1$dh</string>
-    <string name="time_format_minutes_only">%1$dm</string>
-    <string name="time_format_seconds_only">%1$ds</string>
     <string name="time_format_less_than_minute">Less than 1m</string>
     
     <!-- Target confirmation -->
@@ -120,12 +123,13 @@
     <!-- Intervention Screen -->
     <string name="intervention_title">Monitoring</string>
     <!-- <string name="intervention_subtitle">goal app daily usage.</string> -->
-    <string name="intervention_subtitle">%1$s daily usage.</string>
+    <string name="intervention_subtitle">Daily screen time</string>
     
     <!-- Menu Options -->
-    <string name="menu_new_goal">New goal</string>
     <string name="menu_logout">Sign out</string>
+        <string name="menu_profile">Profile</string>
     <string name="menu_button_content_description">Menu</string>
+    <string name="menu_about">About</string>
     <!-- Logout Dialog -->
     <string name="dialog_logout_title">Sign out?</string>
     <string name="dialog_logout_message">You will be returned to the sign-in screen.</string>
@@ -137,19 +141,17 @@
     <string name="evaluation_active_detailed">Monitoring %1$s usage • %2$s%% of goal • %3$s%% time elapsed</string>
     <string name="evaluation_completed">Evaluation completed!</string>
     <string name="evaluation_success">🎉 Goal achieved!</string>
-    <string name="evaluation_success_detailed">🎉 Goal achieved! Used %1$s%% of target</string>
-    <string name="evaluation_exceeded_goal">Goal exceeded. Try again tomorrow!</string>
-    <string name="evaluation_exceeded_goal_detailed">Goal exceeded. Used %1$s%% of target</string>
+    <string name="evaluation_success_detailed">🎉 Goal achieved! Used %1$s%% of goal</string>
     <string name="evaluation_error">Monitoring error occurred</string>
     <string name="evaluation_error_retryable">Error: %1$s. Retrying automatically…</string>
     <string name="evaluation_error_fatal">Fatal error: %1$s. Please restart the app.</string>
-    <string name="evaluation_paused">Evaluation paused</string>
+
     
     <!-- Progress Display -->
     <string name="current_usage_format">Used: %1$s</string>
     <string name="time_left_format">%1$s left</string>
     <string name="goal_time_format">Goal: less than %1$s</string>
-    <string name="time_remaining_format">Evaluation ends: %1$s</string>
+    <string name="time_remaining_format">Day ends: %1$s</string>
     <string name="final_usage_format">Final usage: %1$s</string>
     <string name="total_points_format">Total points: %1$d</string>
 
@@ -159,8 +161,10 @@
     <string name="condition_points_flexible">Earn %1$d points if succeed,\nLose %2$d points if fail</string>
     
     <!-- Accessibility Descriptions -->
-    <string name="progress_accessibility_description">Usage progress: %1$s percent of goal. Used %2$s out of %3$s target.</string>
-    <string name="final_progress_accessibility_description">Evaluation completed. Goal %1$s. Used %2$s out of %3$s target.</string>
+    <string name="progress_accessibility_description">Usage progress: %1$s percent of goal. Used %2$s out of %3$s goal.</string>
+    <string name="final_progress_accessibility_description">Evaluation completed. Status: %1$s. Used %2$s out of %3$s goal.</string>
+    <string name="goal_status_achieved">Achieved</string>
+    <string name="goal_status_completed">Completed</string>
     
     <!-- Placeholders -->
     <string name="current_usage_placeholder">Used: --</string>
@@ -177,10 +181,11 @@
 
     <!-- Error Messages -->
     <string name="error_no_app_selected">Please select an app to set your usage goal</string>
+    <string name="error_setting_plan">Unable to save your goal. Please try again.</string>
     
     <!-- FlexStakes Screen -->
     <string name="flexstakes_title">Decide your</string>
-    <string name="flexstakes_subtitle">own reward and penalty points.</string>
+    <string name="flexstakes_subtitle">own reward and penalty points</string>
     <string name="flexstakes_reward_label">Reward Points (Success)</string>
     <string name="flexstakes_penalty_label">Penalty Points (Failure)</string>
     <string name="flexstakes_reward_hint">0-10 points</string>
@@ -212,51 +217,96 @@
     <string name="slider_default_penalty_display">20 points</string>
     
     <!-- Intervention Error Messages -->
-    <string name="error_no_target_selected">No target app selected. Please go back and select an app to monitor.</string>
+    <string name="error_no_plan_configured">No daily goal configured. Please set up your screen time goal first.</string>
     <string name="error_evaluation_start_failed">Failed to start evaluation: %1$s</string>
     <string name="error_usage_monitoring_failed">Usage monitoring failed</string>
     <!-- Notification -->
+    <string name="notification_channel_name">Evaluation alerts</string>
     <string name="notification_channel_description">Alerts during evaluation cycles</string>
-    <string name="notification_usage_threshold_title">Time Warning!</string>
-    <string name="notification_usage_threshold_content">Reached 80%% of goal time for %1$s.</string>
+    <string name="notification_usage_threshold_title">Usage alert: %1$d%% reached</string>
+    <string name="notification_usage_threshold_content">You\'ve used %2$s of your %1$s goal today (%4$d%%). Daily goal is %3$s.</string>
+
+    <string name="notification_sync_channel_name">Sync alerts</string>
+    <string name="notification_sync_channel_description">Alerts when remote sync fails repeatedly</string>
+    <string name="notification_sync_failure_title">Couldn\'t sync your progress</string>
+    <string name="notification_sync_failure_content">We\'ll keep trying to upload today\'s usage when you\'re back online.</string>
 
     <!-- Cycle Complete Notification -->
     <string name="notification_cycle_complete_title">Evaluation complete.</string>
     <string name="notification_cycle_complete_content">See feedback!</string>
 
     <!-- History Screen -->
-    <string name="history_title">History</string>
-    <string name="history_subtitle">Your progress across all evaluation cycles.</string>
-    <string name="history_filter_hint">Filter by app</string>
-    <string name="history_filter_all">All apps</string>
+    <string name="history_title">App history</string>
+    <string name="history_subtitle">By app, date, time</string>
+    <string name="history_filter_hint">App usage</string>
+    <string name="history_filter_dialog_title">Filter goals</string>
+    <string name="history_filter_all">All goals</string>
     <string name="history_met_goal">Goal met</string>
     <string name="history_missed_goal">Overused</string>
-    <string name="history_empty">No past cycles yet</string>
-    <string name="history_empty_description">Complete your first evaluation cycle to see your progress history here.</string>
+    <string name="history_empty">No usage yet</string>
+    <string name="history_empty_description">We’ll show your most used apps once you’ve spent time on them today.</string>
     <string name="history_empty_filtered">No results found</string>
-    <string name="history_empty_filtered_description">No evaluation cycles found for the selected app. Try a different filter.</string>
-    <string name="history_loading">Loading your history…</string>
+    <string name="history_empty_filtered_description">No evaluation cycles found for the selected goal. Try a different filter.</string>
+    <string name="history_loading">Loading your app usage…</string>
     <string name="history_entry_duration">%1$s evaluation</string>
     <string name="history_entry_date">%1$s</string>
     <string name="history_entry_usage_vs_goal">Used %1$s of %2$s goal</string>
     <string name="history_entry_success_badge">✓ Success</string>
     <string name="history_entry_exceeded_badge">× Exceeded</string>
-    <string name="history_entry_percentage_display">%1$s%%</string>
+    <string name="history_entry_percentage_display">%1$d%%</string>
+    <string name="history_app_filter_selected">%1$s selected, usage %2$s</string>
+    <string name="history_app_filter_unselected">%1$s not selected, usage %2$s</string>
     <string name="history_card_accessibility_description">%1$s evaluation from %2$s. Used %3$s out of %4$s goal. %5$s.</string>
-    <string name="history_filter_accessibility_description">Filter evaluations by app</string>
+    <string name="history_filter_accessibility_description">Filter evaluations by goal</string>
     <string name="history_back_button_description">Back to monitoring</string>
+    <string name="history_date_picker_title">Choose dates</string>
+    <string name="history_date_picker_button">Change</string>
+    <string name="history_date_picker_content_description">Select dates to filter app usage</string>
+    <string name="history_date_range_single">%1$s</string>
+    <string name="history_date_range_multi">%1$s – %2$s</string>
+    <string name="history_chart_title">Hourly breakdown</string>
+    <string name="history_chart_empty">No screen time recorded for this range yet.</string>
+    <string name="history_chart_minutes_label">Minutes</string>
+    <string name="history_chart_bar_content_description">Hour %1$d: %2$s of screen time</string>
+    <string name="history_chart_bar_content_description_empty">Hour %1$d: no screen time</string>
+    
+    <!-- About Screen -->
+    <string name="about_title">About Zario</string>
+    <string name="about_subtitle">Helping you build healthier screen habits</string>
+    <string name="about_research_purpose">Zario is part of an ongoing research project exploring effective strategies to decrease daily screen time.</string>
+    <string name="about_reduction_goal">The app guides you toward reducing your screen time through personalized goals and daily insights.</string>
+    <string name="about_evaluation_process">Each evaluation cycle compares your usage to your goal: meet it to earn points, exceed it and you may lose some.</string>
+    <string name="about_privacy_statement">We don’t collect, store, or exploit any personal information—your data stays on your device.</string>
+    <string name="about_contact_button">Email the research team</string>
+    <string name="about_contact_chooser_title">Contact Zario team</string>
+    <string name="about_contact_error">No email app found on this device.</string>
     <string name="time_range_format">%1$s — %2$s</string>
     
     <!-- Statistics -->
     <string name="history_stats_total_cycles">Cycles: %1$d</string>
     <string name="history_stats_success_rate">Success: %1$d%%</string>
     <string name="history_stats_section_title">Your Progress</string>
+    <string name="history_stats_today_usage">Today: %1$s</string>
     <!-- Menu -->
     <string name="menu_history">History</string>
-    
+
+    <!-- Profile Screen -->
+    <string name="profile_title">Profile</string>
+    <string name="profile_subtitle">Your account and progress</string>
+    <string name="profile_email_label">Email</string>
+    <string name="profile_days_since_signup_label">Days since joining</string>
+    <string name="profile_cycles_met_label">Goals met</string>
+    <string name="profile_total_points_label">Current points</string>
+    <string name="profile_cycle_list_title">Completed evaluation cycles</string>
+    <string name="profile_empty_cycles">No evaluation cycles completed yet.</string>
+    <string name="profile_cycle_status_met">Met</string>
+    <string name="profile_cycle_status_missed">Missed</string>
+    <string name="profile_cycle_item_content_description">Cycle on %1$s, %2$s, %3$s points total</string>
+    <string name="profile_cycle_points_format">Points total: %1$s</string>
+
     <!-- Feedback Screen -->
     <string name="feedback_title">Feedback</string>
-    <string name="feedback_subtitle">on the past day goal.</string>
+    <string name="feedback_subtitle">on the past day goal</string>
     <string name="feedback_goal_met">🎉\nGoal met!</string>
     <string name="feedback_goal_missed">Goal missed</string>
     <string name="feedback_points_earned">Points earned: +%1$d</string>

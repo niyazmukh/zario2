@@ -1,10 +1,7 @@
 package com.niyaz.zario.ui.permissions
 
 import android.Manifest
-import android.app.AppOpsManager
-import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
@@ -13,12 +10,12 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import com.niyaz.zario.Constants
 import com.niyaz.zario.R
 import com.niyaz.zario.databinding.FragmentPermissionsBinding
+import com.niyaz.zario.permissions.PermissionsManager
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
@@ -27,11 +24,13 @@ class PermissionsFragment : Fragment() {
 
     private var _binding: FragmentPermissionsBinding? = null
     private val binding get() = _binding!!
+    @Inject lateinit var permissionsManager: PermissionsManager
 
     private val notificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         Log.d(TAG, "Notification permission result: $isGranted")
+        permissionsManager.refresh()
         updateNotificationPermissionUI(isGranted)
         updateContinueButtonState()
     }
@@ -85,14 +84,11 @@ class PermissionsFragment : Fragment() {
         Log.d(TAG, "Android version: ${Build.VERSION.SDK_INT}, TIRAMISU: ${Build.VERSION_CODES.TIRAMISU}")
         
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            val currentPermission = ContextCompat.checkSelfPermission(
-                requireContext(),
-                Manifest.permission.POST_NOTIFICATIONS
-            )
+            val currentPermission = permissionsManager.hasNotificationPermission(forceRefresh = true)
             Log.d(TAG, "Current notification permission status: $currentPermission")
             
             when {
-                currentPermission == PackageManager.PERMISSION_GRANTED -> {
+                currentPermission -> {
                     Log.d(TAG, "Notification permission already granted")
                     updateNotificationPermissionUI(true)
                 }
@@ -108,6 +104,7 @@ class PermissionsFragment : Fragment() {
         } else {
             Log.d(TAG, "Android version < 13, notifications enabled by default")
             // For Android 12 and below, notifications are enabled by default
+            permissionsManager.refresh()
             updateNotificationPermissionUI(true)
         }
     }
@@ -115,7 +112,7 @@ class PermissionsFragment : Fragment() {
     private fun requestUsageStatsPermission() {
         Log.d(TAG, "requestUsageStatsPermission called")
         
-        if (hasUsageStatsPermission()) {
+        if (permissionsManager.hasUsageStatsPermission(forceRefresh = true)) {
             Log.d(TAG, "Usage stats permission already granted")
             updateUsageStatsPermissionUI(true)
         } else {
@@ -129,36 +126,12 @@ class PermissionsFragment : Fragment() {
         }
     }
 
-    private fun hasUsageStatsPermission(): Boolean {
-        val appOps = requireContext().getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
-        val mode = appOps.checkOpNoThrow(
-            AppOpsManager.OPSTR_GET_USAGE_STATS,
-            android.os.Process.myUid(),
-            requireContext().packageName
-        )
-        val hasPermission = mode == AppOpsManager.MODE_ALLOWED
-        Log.d(TAG, "Usage stats permission check: $hasPermission (mode: $mode)")
-        return hasPermission
-    }
-
-    private fun hasNotificationPermission(): Boolean {
-        val hasPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            ContextCompat.checkSelfPermission(
-                requireContext(),
-                Manifest.permission.POST_NOTIFICATIONS
-            ) == PackageManager.PERMISSION_GRANTED
-        } else {
-            true // Notifications are enabled by default on Android 12 and below
-        }
-        Log.d(TAG, "Notification permission check: $hasPermission")
-        return hasPermission
-    }
-
     private fun updatePermissionStates() {
         Log.d(TAG, "Updating permission states")
-        updateNotificationPermissionUI(hasNotificationPermission())
-        updateUsageStatsPermissionUI(hasUsageStatsPermission())
-        updateContinueButtonState()
+        val state = permissionsManager.refresh()
+        updateNotificationPermissionUI(state.hasNotificationPermission)
+        updateUsageStatsPermissionUI(state.hasUsageStatsPermission)
+        updateContinueButtonState(state)
     }
 
     private fun updateNotificationPermissionUI(granted: Boolean) {
@@ -181,9 +154,9 @@ class PermissionsFragment : Fragment() {
         binding.cardUsagePermission.isEnabled = !granted
     }
 
-    private fun updateContinueButtonState() {
-        val notificationPermission = hasNotificationPermission()
-        val usagePermission = hasUsageStatsPermission()
+    private fun updateContinueButtonState(state: PermissionsManager.PermissionsState = permissionsManager.currentState()) {
+        val notificationPermission = state.hasNotificationPermission
+        val usagePermission = state.hasUsageStatsPermission
         val allPermissionsGranted = notificationPermission && usagePermission
         
         Log.d(TAG, "Continue button state: notification=$notificationPermission, usage=$usagePermission, all=$allPermissionsGranted")

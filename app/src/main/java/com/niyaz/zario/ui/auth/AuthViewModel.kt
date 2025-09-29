@@ -1,30 +1,37 @@
 package com.niyaz.zario.ui.auth
 
 import android.content.Context
+import androidx.core.util.PatternsCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.firebase.FirebaseNetworkException
+import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
+import com.google.firebase.auth.FirebaseAuthInvalidUserException
+import com.google.firebase.auth.FirebaseAuthUserCollisionException
+import com.google.firebase.auth.FirebaseAuthWeakPasswordException
 import com.niyaz.zario.R
 import com.niyaz.zario.Constants
+import com.niyaz.zario.auth.AuthRepository
+import com.niyaz.zario.auth.SignupRequest
 import com.niyaz.zario.data.AuthResult
-import com.niyaz.zario.data.ValidationResult
-import com.niyaz.zario.data.User
 import com.niyaz.zario.data.Condition
+import com.niyaz.zario.data.ValidationResult
 import com.niyaz.zario.repository.UserSessionRepository
-import kotlinx.coroutines.delay
+import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import java.time.LocalDate
+import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import android.util.Patterns
-import java.time.LocalDate
-import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.inject.Inject
-import dagger.hilt.android.qualifiers.ApplicationContext
 
 @HiltViewModel
 class AuthViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val sessionRepository: UserSessionRepository
+    private val sessionRepository: UserSessionRepository,
+    private val authRepository: AuthRepository
 ) : ViewModel() {
 
     private val _authResult = MutableStateFlow<AuthResult>(AuthResult.Idle)
@@ -50,17 +57,12 @@ class AuthViewModel @Inject constructor(
 
         viewModelScope.launch {
             _authResult.value = AuthResult.Loading
-            
-            // Simulate network call
-            delay(Constants.AUTH_DELAY_MS)
-            
-            val isValid = sessionRepository.isValidCredentials(email, password)
-            if (isValid) {
-                // Simply mark the existing profile as logged-in without overriding stored fields.
-                sessionRepository.markLoggedIn()
+            val result = authRepository.login(email, password)
+            result.onSuccess { user ->
+                sessionRepository.setLoggedIn(user)
                 _authResult.value = AuthResult.Success
-            } else {
-                _authResult.value = AuthResult.Error(context.getString(R.string.auth_invalid_credentials))
+            }.onFailure { error ->
+                _authResult.value = AuthResult.Error(mapAuthError(error))
             }
         }
     }
@@ -70,27 +72,24 @@ class AuthViewModel @Inject constructor(
 
         viewModelScope.launch {
             _authResult.value = AuthResult.Loading
-            
-            // Simulate network call
-            delay(Constants.AUTH_DELAY_MS)
-            
-            // Persist credentials
-            sessionRepository.saveCredentials(email, password)
 
             // Randomised experimental assignment
             val assignedCondition = Condition.values().random()
-
-            // Persist full profile
-            sessionRepository.setLoggedIn(
-                User(
-                    email = email,
-                    yearOfBirth = yearOfBirth,
-                    gender = gender,
-                    condition = assignedCondition
-                )
+            val request = SignupRequest(
+                email = email,
+                password = password,
+                yearOfBirth = yearOfBirth,
+                gender = gender,
+                condition = assignedCondition
             )
 
-            _authResult.value = AuthResult.Success
+            val result = authRepository.signUp(request)
+            result.onSuccess { user ->
+                sessionRepository.setLoggedIn(user)
+                _authResult.value = AuthResult.Success
+            }.onFailure { error ->
+                _authResult.value = AuthResult.Error(mapAuthError(error))
+            }
         }
     }
 
@@ -127,7 +126,7 @@ class AuthViewModel @Inject constructor(
     private fun validateEmail(email: String): ValidationResult {
         return when {
             email.isEmpty() -> ValidationResult(false, context.getString(R.string.error_empty_email))
-            !Patterns.EMAIL_ADDRESS.matcher(email).matches() -> 
+            !PatternsCompat.EMAIL_ADDRESS.matcher(email).matches() -> 
                 ValidationResult(false, context.getString(R.string.error_invalid_email))
             else -> ValidationResult(true)
         }
@@ -180,5 +179,17 @@ class AuthViewModel @Inject constructor(
         _confirmPasswordError.value = null
         _yearOfBirthError.value = null
         _genderError.value = null
+    }
+
+    private fun mapAuthError(error: Throwable): String {
+        if (error is CancellationException) throw error
+        return when (error) {
+            is FirebaseAuthUserCollisionException -> context.getString(R.string.auth_error_email_in_use)
+            is FirebaseAuthWeakPasswordException -> context.getString(R.string.auth_error_weak_password)
+            is FirebaseAuthInvalidCredentialsException,
+            is FirebaseAuthInvalidUserException -> context.getString(R.string.auth_invalid_credentials)
+            is FirebaseNetworkException -> context.getString(R.string.auth_error_network)
+            else -> error.localizedMessage ?: context.getString(R.string.auth_error_generic)
+        }
     }
 } 

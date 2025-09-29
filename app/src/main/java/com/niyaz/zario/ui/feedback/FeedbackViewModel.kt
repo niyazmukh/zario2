@@ -2,23 +2,23 @@ package com.niyaz.zario.ui.feedback
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.niyaz.zario.Constants
-import com.niyaz.zario.data.Condition
 import com.niyaz.zario.data.local.dao.EvaluationHistoryDao
+import com.niyaz.zario.domain.PointsCalculator
 import com.niyaz.zario.repository.UserSessionRepository
+import com.niyaz.zario.security.UserIdentity
 import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 data class FeedbackData(
     val goalMet: Boolean,
     val pointsChange: Int,
     val goalStreak: Int,
-    val appName: String,
+    val planLabel: String,
     val isLoading: Boolean = false
 )
 
@@ -32,7 +32,7 @@ class FeedbackViewModel @Inject constructor(
         goalMet = false,
         pointsChange = 0,
         goalStreak = 0,
-        appName = "",
+        planLabel = "",
         isLoading = true
     ))
     val feedbackData: StateFlow<FeedbackData> = _feedbackData.asStateFlow()
@@ -44,19 +44,21 @@ class FeedbackViewModel @Inject constructor(
     private fun loadLatestCycleResults() {
         viewModelScope.launch {
             try {
-                val userEmail = userSessionRepository.session.value.user?.email ?: return@launch
-                val condition = userSessionRepository.session.value.user?.condition ?: Condition.CONTROL
+                val user = userSessionRepository.session.value.user ?: return@launch
+                val userEmail = user.email
+                val condition = user.condition
+                val candidateIds = UserIdentity.candidateIds(user.id, userEmail)
+                val idsForQuery = if (candidateIds.isEmpty()) listOf(EMPTY_ID_SENTINEL) else candidateIds
                 
                 // Get all history entries for this user, ordered by end time descending
-                val allHistory = historyDao.getAll(userEmail).first()
+                val allHistory = historyDao.getAllForUser(idsForQuery, userEmail).first()
                 
                 if (allHistory.isEmpty()) {
                     _feedbackData.value = FeedbackData(
                         goalMet = false,
                         pointsChange = 0,
                         goalStreak = 0,
-                        appName = "",
-                        isLoading = false
+                        planLabel = ""
                     )
                     return@launch
                 }
@@ -65,16 +67,12 @@ class FeedbackViewModel @Inject constructor(
                 val latestEntry = allHistory.first()
                 
                 // Calculate points change based on condition and goal achievement
-                val pointsChange = when (condition) {
-                    Condition.CONTROL -> if (latestEntry.metGoal) Constants.CONTROL_REWARD else -Constants.CONTROL_PENALTY
-                    Condition.DEPOSIT -> if (latestEntry.metGoal) Constants.DEPOSIT_REWARD else -Constants.DEPOSIT_PENALTY
-                    Condition.FLEXIBLE -> {
-                        val user = userSessionRepository.session.value.user
-                        val reward = user?.flexibleReward ?: Constants.FLEXIBLE_REWARD
-                        val penalty = user?.flexiblePenalty ?: Constants.FLEXIBLE_PENALTY
-                        if (latestEntry.metGoal) reward else -penalty
-                    }
-                }
+                val pointsChange = PointsCalculator.calculateDelta(
+                    condition = condition,
+                    metGoal = latestEntry.metGoal,
+                    flexibleReward = user.flexibleReward,
+                    flexiblePenalty = user.flexiblePenalty
+                )
 
                 // Calculate goal streak (consecutive goals met from most recent backwards)
                 val goalStreak = calculateGoalStreak(allHistory)
@@ -83,8 +81,7 @@ class FeedbackViewModel @Inject constructor(
                     goalMet = latestEntry.metGoal,
                     pointsChange = pointsChange,
                     goalStreak = goalStreak,
-                    appName = latestEntry.appName,
-                    isLoading = false
+                    planLabel = latestEntry.planLabel
                 )
 
             } catch (e: Exception) {
@@ -93,8 +90,7 @@ class FeedbackViewModel @Inject constructor(
                     goalMet = false,
                     pointsChange = 0,
                     goalStreak = 0,
-                    appName = "",
-                    isLoading = false
+                    planLabel = ""
                 )
             }
         }
@@ -118,5 +114,9 @@ class FeedbackViewModel @Inject constructor(
         }
         
         return streak
+    }
+
+    companion object {
+        private const val EMPTY_ID_SENTINEL = "__none__"
     }
 } 

@@ -13,10 +13,10 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import com.niyaz.zario.R
 import com.niyaz.zario.databinding.FragmentFeedbackBinding
-import com.niyaz.zario.repository.EvaluationRepository
+import com.niyaz.zario.core.evaluation.EvaluationRepository
 import dagger.hilt.android.AndroidEntryPoint
-import javax.inject.Inject
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class FeedbackFragment : Fragment() {
@@ -52,7 +52,9 @@ class FeedbackFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         
         // Mark feedback as viewed when screen is displayed
-        evaluationRepository.markFeedbackViewed()
+        viewLifecycleOwner.lifecycleScope.launch {
+            evaluationRepository.markFeedbackViewed()
+        }
         
         setupHeader()
         setupClickListeners()

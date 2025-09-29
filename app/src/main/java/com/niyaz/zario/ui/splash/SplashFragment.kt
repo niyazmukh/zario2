@@ -1,27 +1,22 @@
 package com.niyaz.zario.ui.splash
 
-import android.Manifest
-import android.app.AppOpsManager
-import android.content.Context
-import android.content.pm.PackageManager
-import android.os.Build
 import android.os.Bundle
+import android.os.Looper
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import com.niyaz.zario.R
+import com.niyaz.zario.core.evaluation.EvaluationRepository
 import com.niyaz.zario.repository.UserSessionRepository
-import com.niyaz.zario.repository.EvaluationRepository
-import javax.inject.Inject
+import com.niyaz.zario.permissions.PermissionsManager
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import android.os.Looper
-import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
 /**
  * Entry fragment that decides initial navigation based on:
@@ -34,6 +29,7 @@ class SplashFragment : Fragment() {
 
     @Inject lateinit var sessionRepository: UserSessionRepository
     @Inject lateinit var evaluationRepository: EvaluationRepository
+    @Inject lateinit var permissionsManager: PermissionsManager
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -53,7 +49,7 @@ class SplashFragment : Fragment() {
     }
 
     private suspend fun decideNavigation() = withContext(Dispatchers.Default) {
-        val session = sessionRepository.session.value
+        val session = sessionRepository.awaitSession()
         if (!session.isLoggedIn) {
             navigateSafely(R.id.action_splash_to_login)
             return@withContext
@@ -67,8 +63,8 @@ class SplashFragment : Fragment() {
 
         // Check if FLEXIBLE user needs to set stakes
         val currentUser = session.user
-        if (currentUser?.condition == com.niyaz.zario.data.Condition.FLEXIBLE && 
-            !sessionRepository.hasSetFlexibleStakes()) {
+        if (currentUser?.condition == com.niyaz.zario.data.Condition.FLEXIBLE &&
+            currentUser.hasSetFlexibleStakes.not()) {
             navigateSafely(R.id.action_splash_to_flexstakes)
             return@withContext
         }
@@ -78,7 +74,7 @@ class SplashFragment : Fragment() {
             return@withContext
         }
 
-        if (!evaluationRepository.hasTargetSelected()) {
+    if (!evaluationRepository.hasPlanConfigured()) {
             navigateSafely(R.id.action_splash_to_target)
             return@withContext
         }
@@ -89,28 +85,8 @@ class SplashFragment : Fragment() {
     }
 
     private fun hasAllRequiredPermissions(): Boolean {
-        return hasUsageStatsPermission() && hasNotificationPermission()
-    }
-
-    private fun hasUsageStatsPermission(): Boolean {
-        val appOps = requireContext().getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
-        val mode = appOps.checkOpNoThrow(
-            AppOpsManager.OPSTR_GET_USAGE_STATS,
-            android.os.Process.myUid(),
-            requireContext().packageName
-        )
-        return mode == AppOpsManager.MODE_ALLOWED
-    }
-
-    private fun hasNotificationPermission(): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            ContextCompat.checkSelfPermission(
-                requireContext(),
-                Manifest.permission.POST_NOTIFICATIONS
-            ) == PackageManager.PERMISSION_GRANTED
-        } else {
-            true
-        }
+        val state = permissionsManager.refresh()
+        return state.hasUsageStatsPermission && state.hasNotificationPermission
     }
 
     private fun navigateSafely(actionId: Int) {
