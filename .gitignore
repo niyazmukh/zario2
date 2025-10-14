@@ -62,6 +62,7 @@ log.md
 *.log
 logcat*.txt
 logcat*.md
+buildoutput.md
 
 # Baseline profiles / build snapshots
 baselineprofile/

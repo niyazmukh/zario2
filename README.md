@@ -36,6 +36,14 @@ Key layers:
 3. **Workers** (`worker/`) – Schedule periodic monitoring and notification dispatch.
 4. **Utilities** (`utils/`) – Centralised helpers for usage stats, calendar logic, and notifications.
 
+### Screen-Time Tracking Stack (SSOT: `UsageAggregationStore`)
+- `UsageTrackingInitializer` wires process lifecycle, activity callbacks, screen state receivers, and the optional accessibility fallback into a shared `UsageEventBus`.
+- `UsageEventRecorder` persists raw `TrackedEvent` streams into Room, giving WorkManager jobs and Firebase exports deterministic replay access.
+- `UsageTimelineReconciler` blends lifecycle/screen/accessibility events with periodic `UsageStats` deltas to emit confidence-weighted `UsageSession` rows.
+- `UsageAggregationStore` remains the single source of truth for usage summaries, buckets, and foreground snapshots; `UsageStatsRepository` adds OEM-aware refresh cadence via `DevicePolicyAdvisor`.
+
+Process overview: trackers emit raw events → recorder buffers them → reconciliation converts them into sessions → summaries feed UI, nudges, and hourly Firebase exports. Raw buffers are purged after successful sync to cap storage while retaining 48 h for debugging.
+
 ---
 
 ## 🗃️ Data Storage Model
@@ -50,7 +58,7 @@ Every persistent record now carries a stable hashed `userId`, making local data 
 
 ## �️ Prerequisites
 - Android Studio Hedgehog (2023.1.1) or newer
-- Android SDK Platform 34 with build tools 34.0.0+
+- Android SDK Platform 35 with build tools 35.0.0+
 - Kotlin 2.0.21+
 - Java 11 (toolchain is configured for JVM 11)
 
@@ -77,6 +85,7 @@ Every persistent record now carries a stable hashed `userId`, making local data 
      ```bash
      ./gradlew assembleDebug
      ```
+   - (Optional) Enable the accessibility fallback: open *Settings → Accessibility → Installed services* and activate **Zario Screen Monitor** if your OEM throttles UsageStats events.
 
 5. **(Optional) Generate release-ready artefacts**
    - Use `./gradlew bundleRelease` or `assembleRelease` once your signing and distribution setup is configured.
@@ -96,9 +105,17 @@ Every persistent record now carries a stable hashed `userId`, making local data 
 
 Test coverage currently focuses on repository logic and ViewModel state; contributions that expand scenario coverage are welcome.
 
+### Repro commands
+- Screen-time core only: `./gradlew :usage-core:test`
+
 ---
 
-## 📁 Project Layout
+## �️ Debug Utilities
+- **Simulate daily cycle (debug builds only)** – open the Profile screen and tap *Simulate cycle completion* to instantly finalize the active evaluation and restart the monitoring scheduler. This helps verify history aggregation without waiting for midnight.
+
+---
+
+## �📁 Project Layout
 ```
 app/
 ├── build.gradle.kts
@@ -132,7 +149,18 @@ Ethical approval and participant consent requirements are honoured through insti
 
 ---
 
-## 📄 License
+## � Documentation
+
+### Core Documentation
+- [Screen Time Tracking Pipeline](docs/screen_time_tracking_pipeline.md) - Complete architecture and data flow
+- [Scripts & Utilities](scripts/README.md) - PowerShell debugging and monitoring tools
+
+### Historical Analysis
+Archived debugging sessions and root cause analyses are available in [`docs/archive/`](docs/archive/) for reference during troubleshooting.
+
+---
+
+## �📄 License
 Licensed under the MIT License. See [`LICENSE`](LICENSE) for details.
 
 ---
