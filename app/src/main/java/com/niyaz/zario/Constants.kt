@@ -53,7 +53,7 @@ object Constants {
 	const val FLEXIBLE_PENALTY = 20
 	const val FLEXIBLE_REWARD_MIN = 0
 	const val FLEXIBLE_REWARD_MAX = 10
-	const val FLEXIBLE_PENALTY_MIN = 10
+	const val FLEXIBLE_PENALTY_MIN = 0
 	const val FLEXIBLE_PENALTY_MAX = 40
 	const val MAX_POINTS = 10_000
 

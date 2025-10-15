@@ -17,6 +17,7 @@ gradle-app.setting
 .idea/
 .vscode/
 .cursor/
+.github/
 
 # Build artifacts (compiled outputs, intermediates)
 **/build/

@@ -86,6 +86,7 @@
                     android:gravity="center_vertical">
 
                     <TextView
+                        android:id="@+id/tv_reward_min_label"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/slider_reward_min"
@@ -100,15 +101,12 @@
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:layout_marginHorizontal="@dimen/spacing_md"
-                        android:valueFrom="0"
-                        android:valueTo="10"
-                        android:stepSize="1"
-                        android:value="5"
                         app:thumbColor="@color/evaluation_success"
                         app:trackColorActive="@color/evaluation_success"
                         app:trackColorInactive="@color/white" />
 
                     <TextView
+                        android:id="@+id/tv_reward_max_label"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/slider_reward_max"
@@ -177,6 +175,7 @@
                     android:gravity="center_vertical">
 
                     <TextView
+                        android:id="@+id/tv_penalty_max_label"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/slider_penalty_max"
@@ -191,15 +190,13 @@
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:layout_marginHorizontal="@dimen/spacing_md"
-                        android:valueFrom="0"
-                        android:valueTo="40"
-                        android:stepSize="1"
-                        android:value="20"
+                        android:layoutDirection="rtl"
                         app:thumbColor="@color/evaluation_exceeded"
                         app:trackColorActive="@color/evaluation_exceeded"
                         app:trackColorInactive="@color/white" />
 
                     <TextView
+                        android:id="@+id/tv_penalty_min_label"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/slider_penalty_min"
