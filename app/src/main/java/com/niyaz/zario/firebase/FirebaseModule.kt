@@ -3,6 +3,7 @@ package com.niyaz.zario.firebase
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreSettings
+import com.google.firebase.firestore.PersistentCacheSettings
 import com.niyaz.zario.auth.AuthRepository
 import com.niyaz.zario.core.evaluation.EvaluationRemoteDataSource
 import dagger.Binds
@@ -24,13 +25,12 @@ object FirebaseModule {
     @Singleton
     fun provideFirebaseFirestore(): FirebaseFirestore {
         return FirebaseFirestore.getInstance().apply {
-            // Enable local persistence for offline writes and queued sync
-            val currentSettings = firestoreSettings
-            if (!currentSettings.isPersistenceEnabled) {
-                firestoreSettings = FirebaseFirestoreSettings.Builder(currentSettings)
-                    .setPersistenceEnabled(true)
-                    .build()
-            }
+            // Enable offline persistence to cache writes locally when network unavailable
+            // Persisted data survives app restarts (protects against data loss on uninstall)
+            val persistentCache = PersistentCacheSettings.newBuilder().build()
+            firestoreSettings = FirebaseFirestoreSettings.Builder(firestoreSettings)
+                .setLocalCacheSettings(persistentCache)
+                .build()
         }
     }
 }

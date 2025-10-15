@@ -81,17 +81,18 @@ class EvaluationRepository @Inject constructor(
     suspend fun hasPlanConfigured(): Boolean = planPreferencesDataSource.latest().plan != null
 
     suspend fun hasActiveEvaluation(): Boolean {
-        val plan = planPreferencesDataSource.latest().plan ?: return false
+        val snapshot = cycleStateStore.latest()
+        val plan = snapshot.plan ?: return false
         val start = plan.evaluationStartTime ?: return false
-        return CalendarUtils.isWithinCurrentDay(start) &&
-            System.currentTimeMillis() < CalendarUtils.getEndOfCurrentDay()
+        val now = System.currentTimeMillis()
+        return !snapshot.evaluationCompleted && now >= start
     }
 
     suspend fun isEvaluationExpired(): Boolean {
         val plan = planPreferencesDataSource.latest().plan ?: return false
         val start = plan.evaluationStartTime ?: return false
-        return !CalendarUtils.isWithinCurrentDay(start) ||
-            System.currentTimeMillis() >= CalendarUtils.getEndOfCurrentDay()
+        val now = System.currentTimeMillis()
+        return now >= CalendarUtils.getEndOfDay(start)
     }
 
     suspend fun getCurrentPlan(): ScreenTimePlan? = planPreferencesDataSource.latest().plan
@@ -101,6 +102,10 @@ class EvaluationRepository @Inject constructor(
 
     suspend fun markUsageNotification(thresholdPercent: Int) {
         cycleStateStore.markUsageThresholdReached(thresholdPercent)
+    }
+
+    suspend fun getLastNotificationTime(): Long? {
+        return planPreferencesDataSource.getLastNotificationTime()
     }
 
     suspend fun getNextCycleStartTime(): Long? =
@@ -148,6 +153,7 @@ class EvaluationRepository @Inject constructor(
 
     suspend fun markFeedbackViewed() {
         cycleStateStore.markFeedbackViewed()
+        cycleStateStore.resetCompletionFlags(forceClear = true)
     }
 
     suspend fun recordCycleResult(entry: EvaluationHistoryEntry) {

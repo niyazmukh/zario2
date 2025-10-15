@@ -65,24 +65,25 @@ class FlexStakesFragment : Fragment() {
             }
         }
         
-        // Setup penalty slider (RTL layout: 40 on left, 0 on right)
+        val defaultPenalty = (Constants.FLEXIBLE_PENALTY_MAX / 2)
+
+        // Setup penalty slider so that moving left increases the penalty value
         binding.sliderPenalty.apply {
             valueFrom = Constants.FLEXIBLE_PENALTY_MIN.toFloat()
             valueTo = Constants.FLEXIBLE_PENALTY_MAX.toFloat()
             stepSize = 1f
-            value = (Constants.FLEXIBLE_PENALTY_MAX / 2).toFloat() // Default to middle value (20)
+            value = (Constants.FLEXIBLE_PENALTY_MAX - defaultPenalty).toFloat()
             
             addOnChangeListener { _, value, _ ->
-                // With RTL layout, the slider value directly corresponds to the visual position
-                // Leftmost position (visually 40) = value 40, Rightmost position (visually 0) = value 0
-                updatePenaltyValueDisplay(value.toInt())
+                val penaltyValue = Constants.FLEXIBLE_PENALTY_MAX - value.toInt()
+                updatePenaltyValueDisplay(penaltyValue)
                 updateContinueButtonState()
             }
         }
         
         // Initialize value displays
         updateRewardValueDisplay(binding.sliderReward.value.toInt())
-        updatePenaltyValueDisplay(binding.sliderPenalty.value.toInt())
+        updatePenaltyValueDisplay(Constants.FLEXIBLE_PENALTY_MAX - binding.sliderPenalty.value.toInt())
     }
 
     private fun updateRewardValueDisplay(value: Int) {
@@ -98,7 +99,7 @@ class FlexStakesFragment : Fragment() {
     private fun setupClickListeners() {
         binding.btnContinue.setOnClickListener {
             val reward = binding.sliderReward.value.toInt()
-            val penalty = binding.sliderPenalty.value.toInt()
+            val penalty = Constants.FLEXIBLE_PENALTY_MAX - binding.sliderPenalty.value.toInt()
             viewModel.setFlexibleStakes(reward, penalty)
         }
     }

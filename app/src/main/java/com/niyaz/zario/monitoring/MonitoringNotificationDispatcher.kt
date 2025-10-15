@@ -16,11 +16,10 @@ interface MonitoringNotificationDispatcher {
 		thresholdPercent: Int
 	)
 
-	fun scheduleCycleCompletionNotification(
+	fun notifyCycleCompletionNow(
 		context: Context,
-		cycleEndTime: Long
+		plan: ScreenTimePlan,
+		finalUsageMs: Long
 	)
-
-	fun notifyCycleCompletionNow(context: Context)
 }
 

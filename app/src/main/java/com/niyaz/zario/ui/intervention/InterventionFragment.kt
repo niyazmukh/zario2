@@ -4,6 +4,7 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import java.util.Locale
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.widget.PopupMenu
 import androidx.core.content.ContextCompat
@@ -306,7 +307,7 @@ class InterventionFragment : Fragment() {
 
             progressIndicator.contentDescription = getString(
                 R.string.progress_accessibility_description,
-                String.format("%.1f", progress.usagePercentage),
+                String.format(Locale.US, "%.1f", progress.usagePercentage),
                 TimeUtils.formatTimeForDisplay(requireContext(), progress.currentUsageMs),
                 TimeUtils.formatTimeForDisplay(requireContext(), plan.goalTimeMs)
             )

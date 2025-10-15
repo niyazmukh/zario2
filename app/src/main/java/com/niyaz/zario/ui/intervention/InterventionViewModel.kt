@@ -2,12 +2,8 @@ package com.niyaz.zario.ui.intervention
 
 import android.content.Context
 import android.util.Log
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.work.WorkInfo
-import androidx.work.WorkManager
 import com.niyaz.zario.BuildConfig
 import com.niyaz.zario.Constants
 import com.niyaz.zario.R
@@ -19,9 +15,12 @@ import com.niyaz.zario.core.usage.UsageStatsRepository
 import com.niyaz.zario.utils.CalendarUtils
 import com.niyaz.zario.worker.MonitoringWorkScheduler
 import com.niyaz.zario.worker.UsageMonitoringWorker
+import com.niyaz.zario.worker.WorkProgressRepository
+import com.niyaz.zario.worker.WorkProgressUpdate
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -35,16 +34,14 @@ class InterventionViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val repository: EvaluationRepository,
     private val monitoringWorkScheduler: MonitoringWorkScheduler,
-    private val usageStatsRepository: UsageStatsRepository
+    private val usageStatsRepository: UsageStatsRepository,
+    private val workProgressRepository: WorkProgressRepository
 ) : ViewModel() {
-
-    private val workManager = WorkManager.getInstance(context)
 
     private val _evaluationState = MutableStateFlow<EvaluationState>(EvaluationState.NotStarted)
     val evaluationState: StateFlow<EvaluationState> = _evaluationState.asStateFlow()
 
-    private var workInfoLiveData: LiveData<List<WorkInfo>>? = null
-    private var workInfoObserver: Observer<List<WorkInfo>>? = null
+    private var workObserverJob: Job? = null
 
     init {
         // Start evaluation when ViewModel is created (when intervention screen is loaded)
@@ -101,6 +98,7 @@ class InterventionViewModel @Inject constructor(
      */
     fun refreshProgress() {
         viewModelScope.launch {
+            Log.d(TAG, "refreshProgress() called")
             val plan = repository.getCurrentPlan() ?: return@launch
             val evaluationStart = plan.evaluationStartTime
 
@@ -153,47 +151,45 @@ class InterventionViewModel @Inject constructor(
     private fun observeWorkProgress() {
         Log.d(TAG, "Setting up work progress observer")
         
-        // Clean up existing observer
-        cleanupWorkObserver()
+        // Cancel existing observer
+        workObserverJob?.cancel()
         
-        // Create new observer
-        workInfoLiveData = workManager.getWorkInfosForUniqueWorkLiveData(UsageMonitoringWorker.WORK_NAME)
-        workInfoObserver = Observer { workInfos ->
-            Log.d(TAG, "Work info update received, count: ${workInfos?.size ?: 0}")
-
-            workInfos?.forEach { workInfo ->
-                when (workInfo.state) {
-                    WorkInfo.State.RUNNING -> {
-                        Log.d(TAG, "Worker is running – updating in-flight progress")
-                        updateProgressFromWorkData(workInfo.progress)
-                    }
-                    WorkInfo.State.SUCCEEDED -> {
-                        Log.d(TAG, "Worker succeeded, updating progress")
-                        
-                        // CRITICAL FIX: Check completion BEFORE rescheduling
-                        val isComplete = workInfo.outputData.getBoolean(UsageMonitoringWorker.OUTPUT_EVALUATION_COMPLETE, false)
-                        
-                        // Update progress first
-                        updateProgressFromWorkData(workInfo.outputData)
-                        
-                        // No longer reschedule here – worker self-reschedules. Just update UI.
-                        if (isComplete) {
-                            Log.i(TAG, "Evaluation completed – worker chain continues (next cycle scheduled)")
+        // Start observing work progress via Flow
+        workObserverJob = viewModelScope.launch {
+            workProgressRepository.observeWorkProgress(UsageMonitoringWorker.WORK_NAME)
+                .collect { update ->
+                    when (update) {
+                        is WorkProgressUpdate.Running -> {
+                            Log.d(TAG, "Worker is running – updating in-flight progress")
+                            updateProgressFromWorkData(update.progress)
+                        }
+                        is WorkProgressUpdate.Succeeded -> {
+                            Log.d(TAG, "Worker succeeded, updating progress")
+                            
+                            // CRITICAL FIX: Check completion BEFORE updating progress
+                            val isComplete = update.output.getBoolean(
+                                UsageMonitoringWorker.OUTPUT_EVALUATION_COMPLETE, 
+                                false
+                            )
+                            
+                            updateProgressFromWorkData(update.output)
+                            
+                            if (isComplete) {
+                                Log.i(TAG, "Evaluation completed – worker chain continues")
+                            }
+                        }
+                        is WorkProgressUpdate.Failed -> {
+                            Log.e(TAG, "Worker failed")
+                            _evaluationState.value = EvaluationState.Error(
+                                context.getString(R.string.error_usage_monitoring_failed)
+                            )
+                        }
+                        is WorkProgressUpdate.Cancelled -> {
+                            Log.d(TAG, "Worker was cancelled")
                         }
                     }
-                    WorkInfo.State.FAILED -> {
-                        Log.e(TAG, "Worker failed")
-                        _evaluationState.value = EvaluationState.Error(context.getString(R.string.error_usage_monitoring_failed))
-                    }
-                    else -> {
-                        Log.d(TAG, "Worker state: ${workInfo.state}")
-                    }
                 }
-            }
         }
-        
-        // Start observing
-        workInfoLiveData?.observeForever(workInfoObserver!!)
     }
 
     // scheduleNextMonitoring removed – worker self-reschedules internally
@@ -201,13 +197,16 @@ class InterventionViewModel @Inject constructor(
     private fun updateProgressFromWorkData(outputData: androidx.work.Data) {
         viewModelScope.launch {
             try {
-                val currentUsage = outputData.getLong(UsageMonitoringWorker.OUTPUT_CURRENT_USAGE, 0L)
+                val workerUsage = outputData.getLong(UsageMonitoringWorker.OUTPUT_CURRENT_USAGE, 0L)
                 val elapsedTime = outputData.getLong(UsageMonitoringWorker.OUTPUT_ELAPSED_TIME, 0L)
                 val goalTime = outputData.getLong(UsageMonitoringWorker.OUTPUT_GOAL_TIME, 0L)
                 val planLabel = outputData.getString(UsageMonitoringWorker.OUTPUT_PLAN_LABEL)
                 val isComplete = outputData.getBoolean(UsageMonitoringWorker.OUTPUT_EVALUATION_COMPLETE, false)
 
-                Log.d(TAG, "Progress update: usage=${currentUsage}ms, elapsed=${elapsedTime}ms, goal=${goalTime}ms, complete=$isComplete")
+                // CRITICAL FIX: Don't trust worker's usage value, read from repository directly
+                val currentUsage = getCurrentUsage()
+                
+                Log.d(TAG, "Progress update: workerUsage=${workerUsage}ms (ignored), actualUsage=${currentUsage}ms, elapsed=${elapsedTime}ms, goal=${goalTime}ms, complete=$isComplete")
 
                 val plan = repository.getCurrentPlan() ?: planLabel?.let {
                     ScreenTimePlan(
@@ -231,7 +230,7 @@ class InterventionViewModel @Inject constructor(
 
                 val activeProgress = buildProgress(
                     plan = plan,
-                    currentUsage = currentUsage,
+                    currentUsage = currentUsage,  // Use repository value, not worker value
                     isActive = true,
                     elapsedOverride = elapsedTime
                 )
@@ -253,22 +252,13 @@ class InterventionViewModel @Inject constructor(
         Log.d(TAG, "Stopping usage monitoring worker")
         monitoringWorkScheduler.cancelMonitoring()
         monitoringWorkScheduler.cancelScheduler()
-        cleanupWorkObserver()
-    }
-
-    private fun cleanupWorkObserver() {
-        workInfoObserver?.let { observer ->
-            workInfoLiveData?.removeObserver(observer)
-            Log.d(TAG, "Work observer cleaned up")
-        }
-        workInfoObserver = null
-        workInfoLiveData = null
+        workObserverJob?.cancel()
     }
 
     override fun onCleared() {
         super.onCleared()
         Log.d(TAG, "ViewModel cleared")
-        cleanupWorkObserver()
+        workObserverJob?.cancel()
     }
 
     companion object {
@@ -276,7 +266,10 @@ class InterventionViewModel @Inject constructor(
     }
 
     private suspend fun getCurrentUsage(): Long = withContext(Dispatchers.IO) {
-        usageStatsRepository.getSnapshot().totalUsageMs
+    val snapshot = usageStatsRepository.getSnapshot(forceRefresh = true)
+        val total = snapshot.totalUsageMs
+        Log.d(TAG, "getCurrentUsage() -> totalUsageMs=$total (${total/60000}min)")
+        total
     }
 
     private fun buildProgress(

@@ -12,6 +12,7 @@ import com.niyaz.zario.R
 import com.niyaz.zario.core.evaluation.EvaluationRepository
 import com.niyaz.zario.repository.UserSessionRepository
 import com.niyaz.zario.permissions.PermissionsManager
+import com.niyaz.zario.utils.BatteryOptimizationUtils
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -86,7 +87,15 @@ class SplashFragment : Fragment() {
 
     private fun hasAllRequiredPermissions(): Boolean {
         val state = permissionsManager.refresh()
-        return state.hasUsageStatsPermission && state.hasNotificationPermission
+        
+        // Check battery optimization (Android 6.0+)
+        val hasBatteryOptimization = requireContext().let { context ->
+            BatteryOptimizationUtils.isIgnoringBatteryOptimizations(context)
+        }
+        
+        return state.hasUsageStatsPermission && 
+               state.hasNotificationPermission &&
+               hasBatteryOptimization
     }
 
     private fun navigateSafely(actionId: Int) {

@@ -1,6 +1,6 @@
 package com.niyaz.zario.core.evaluation.storage
 
-import com.niyaz.zario.utils.UsageStatsUtils
+import com.niyaz.zario.usage.UsageBucket
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -10,7 +10,7 @@ class HourlyUsageMapperTest {
     @Test
     fun `map filters zero-usage buckets`() {
         val buckets = listOf(
-            UsageStatsUtils.UsageBucket(
+            UsageBucket(
                 bucketStartMs = 0L,
                 bucketEndMs = 3_600_000L,
                 totalsByPackage = mapOf(
@@ -18,7 +18,7 @@ class HourlyUsageMapperTest {
                     "com.example.zero" to 0L
                 )
             ),
-            UsageStatsUtils.UsageBucket(
+            UsageBucket(
                 bucketStartMs = 3_600_000L,
                 bucketEndMs = 7_200_000L,
                 totalsByPackage = emptyMap()
@@ -45,7 +45,7 @@ class HourlyUsageMapperTest {
     @Test
     fun `map returns empty list when userId blank`() {
         val buckets = listOf(
-            UsageStatsUtils.UsageBucket(0L, 1L, mapOf("pkg" to 5L))
+            UsageBucket(0L, 1L, mapOf("pkg" to 5L))
         )
 
         val entries = HourlyUsageMapper.map(

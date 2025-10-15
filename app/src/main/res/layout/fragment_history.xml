@@ -69,6 +69,18 @@
     </LinearLayout>
 
     <TextView
+        android:id="@+id/tv_total_usage"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/spacing_sm"
+        android:textAppearance="?attr/textAppearanceBodyMedium"
+        android:textColor="?attr/colorOnSurfaceVariant"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/layout_date_picker"
+        tools:text="Total screen time: 5h 12m" />
+
+    <TextView
         android:id="@+id/tv_chart_title"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -78,7 +90,7 @@
         android:textColor="?attr/colorOnSurface"
         android:textStyle="bold"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/layout_date_picker" />
+        app:layout_constraintTop_toBottomOf="@id/tv_total_usage" />
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recycler_hourly_chart"

@@ -166,6 +166,70 @@
 
         </com.google.android.material.card.MaterialCardView>
 
+        <!-- Battery Optimization Permission Card -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/card_battery_permission"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/spacing_md"
+            android:clickable="true"
+            android:focusable="true"
+            android:foreground="?attr/selectableItemBackground"
+            app:cardCornerRadius="@dimen/card_corner_radius"
+            app:cardElevation="@dimen/card_elevation"
+            app:cardBackgroundColor="@android:color/transparent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/card_usage_permission"
+            app:strokeColor="?attr/colorOutline"
+            app:strokeWidth="@dimen/card_stroke_width">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="@dimen/spacing_md">
+
+                <!-- Permission Info -->
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/battery_optimization_permission_title"
+                        android:textAppearance="?attr/textAppearanceTitleMedium"
+                        android:textColor="?attr/colorOnSurface" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/spacing_xs"
+                        android:text="@string/battery_optimization_permission_description"
+                        android:textAppearance="?attr/textAppearanceBodySmall"
+                        android:textColor="?attr/colorOnSurfaceVariant" />
+
+                </LinearLayout>
+
+                <!-- Permission Status -->
+                <TextView
+                    android:id="@+id/tv_battery_status"
+                    android:layout_width="wrap_content"
+                    android:layout_height="@dimen/button_height_small"
+                    android:gravity="center"
+                    android:minWidth="@dimen/button_width_small"
+                    android:text="@string/grant_permission"
+                    android:textAppearance="?attr/textAppearanceLabelLarge"
+                    android:textColor="?attr/colorPrimary" />
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
+
         <!-- Continue Button -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_continue"
@@ -177,7 +241,7 @@
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/card_usage_permission" />
+            app:layout_constraintTop_toBottomOf="@id/card_battery_permission" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 

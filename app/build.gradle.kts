@@ -29,14 +29,14 @@ plugins {
 
 android {
     namespace = "com.niyaz.zario"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.niyaz.zario"
         minSdk = 29
-        targetSdk = 34
-        versionCode = 2
-        versionName = "1.1.0"
+        targetSdk = 35
+        versionCode = 6
+        versionName = "1.3.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
@@ -98,14 +98,19 @@ android {
         viewBinding = true
         buildConfig = true
     }
-    
-    // Add this configuration for proper Hilt annotation processing
-    kapt {
-        correctErrorTypes = true
+}
+
+kapt {
+    correctErrorTypes = true
+    arguments {
+        arg("room.schemaLocation", "$projectDir/schemas")
+        arg("room.incremental", "true")
+        arg("room.expandProjection", "true")
     }
 }
 
 dependencies {
+    implementation(project(":usage-core"))
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.auth.ktx)
     implementation(libs.firebase.firestore.ktx)
@@ -119,6 +124,7 @@ dependencies {
     implementation(libs.androidx.navigation.ui.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
     implementation(libs.androidx.lifecycle.livedata.ktx)
+    implementation(libs.androidx.lifecycle.process)
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.androidx.swiperefreshlayout)
     
@@ -136,6 +142,8 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.mockk)
+    testImplementation(libs.androidx.test.core)
+    testImplementation(libs.robolectric)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.work.testing)

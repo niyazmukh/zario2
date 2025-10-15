@@ -30,11 +30,15 @@
     
     <!-- Notification Permission -->
     <string name="notification_permission_title">Notifications</string>
-    <string name="notification_permission_description">For progress updates and reminders</string>
+    <string name="notification_permission_description">Receive daily reminders and progress updates about your screen time goals</string>
     
     <!-- Usage Stats Permission -->
     <string name="usage_stats_permission_title">App Usage Access</string>
-    <string name="usage_stats_permission_description">To analyze your screen time patterns</string>
+    <string name="usage_stats_permission_description">Track time spent in your target app to measure your progress and provide feedback</string>
+    
+    <!-- Battery Optimization Permission -->
+    <string name="battery_optimization_permission_title">Battery Optimization</string>
+    <string name="battery_optimization_permission_description">Allow Zario to run in the background so notifications arrive even when your device is sleeping</string>
     
     <!-- Permission Actions -->
     <string name="grant_permission">Grant</string>
@@ -122,8 +126,7 @@
     
     <!-- Intervention Screen -->
     <string name="intervention_title">Monitoring</string>
-    <!-- <string name="intervention_subtitle">goal app daily usage.</string> -->
-    <string name="intervention_subtitle">Daily screen time</string>
+    <string name="intervention_subtitle">Daily screen time · %1$s</string>
     
     <!-- Menu Options -->
     <string name="menu_logout">Sign out</string>
@@ -156,9 +159,13 @@
     <string name="total_points_format">Total points: %1$d</string>
 
     <!-- Condition Points Info -->
-    <string name="condition_points_control">Earn %1$d points if succeed,\nLose %2$d points if fail</string>
-    <string name="condition_points_deposit">Earn %1$d points if succeed,\nLose %2$d points if fail</string>
-    <string name="condition_points_flexible">Earn %1$d points if succeed,\nLose %2$d points if fail</string>
+    <plurals name="points_quantity">
+        <item quantity="one">%d point</item>
+        <item quantity="other">%d points</item>
+    </plurals>
+    <string name="condition_points_control">Earn %1$s if succeed,\nLose %2$s if fail</string>
+    <string name="condition_points_deposit">Earn %1$s if succeed,\nLose %2$s if fail</string>
+    <string name="condition_points_flexible">Earn %1$s if succeed,\nLose %2$s if fail</string>
     
     <!-- Accessibility Descriptions -->
     <string name="progress_accessibility_description">Usage progress: %1$s percent of goal. Used %2$s out of %3$s goal.</string>
@@ -269,6 +276,9 @@
     <string name="history_chart_minutes_label">Minutes</string>
     <string name="history_chart_bar_content_description">Hour %1$d: %2$s of screen time</string>
     <string name="history_chart_bar_content_description_empty">Hour %1$d: no screen time</string>
+    <string name="history_total_usage_label">Total screen time: %1$s</string>
+    <string name="history_usage_other_label">Other apps (&lt;1 min each)</string>
+    <string name="history_usage_other_content_description">Other apps total usage %1$s</string>
     
     <!-- About Screen -->
     <string name="about_title">About Zario</string>
@@ -296,13 +306,19 @@
     <string name="profile_email_label">Email</string>
     <string name="profile_days_since_signup_label">Days since joining</string>
     <string name="profile_cycles_met_label">Goals met</string>
+    <string name="profile_cycles_summary">%1$s of %2$s</string>
     <string name="profile_total_points_label">Current points</string>
     <string name="profile_cycle_list_title">Completed evaluation cycles</string>
+    <string name="profile_cycle_list_title_with_total">Completed evaluation cycles (%1$s total)</string>
     <string name="profile_empty_cycles">No evaluation cycles completed yet.</string>
     <string name="profile_cycle_status_met">Met</string>
     <string name="profile_cycle_status_missed">Missed</string>
     <string name="profile_cycle_item_content_description">Cycle on %1$s, %2$s, %3$s points total</string>
     <string name="profile_cycle_points_format">Points total: %1$s</string>
+    <string name="profile_debug_simulate_cycle">Simulate cycle completion</string>
+    <string name="profile_debug_simulate_cycle_success">Simulated cycle completed. Scheduler restarted.</string>
+    <string name="profile_debug_simulate_cycle_no_plan">Cannot simulate without an active goal. Configure a plan first.</string>
+    <string name="profile_debug_simulate_cycle_failure">Simulation failed: %1$s</string>
 
     <!-- Feedback Screen -->
     <string name="feedback_title">Feedback</string>
@@ -314,4 +330,5 @@
     <string name="feedback_goal_streak">Goal streak: %1$d</string>
     <string name="feedback_goal_streak_none">Goal streak: 0</string>
     <string name="feedback_continue_button">Continue</string>
+    <string name="accessibility_tracking_description">Optional fallback service for Zario screen-time monitoring.</string>
 </resources>

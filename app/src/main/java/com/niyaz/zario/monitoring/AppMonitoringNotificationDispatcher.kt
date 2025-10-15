@@ -19,14 +19,11 @@ class AppMonitoringNotificationDispatcher @Inject constructor() : MonitoringNoti
         NotificationUtils.sendUsageThresholdReached(context, plan, currentUsageMs, thresholdPercent)
     }
 
-    override fun scheduleCycleCompletionNotification(
+    override fun notifyCycleCompletionNow(
         context: Context,
-        cycleEndTime: Long
+        plan: ScreenTimePlan,
+        finalUsageMs: Long
     ) {
-        NotificationUtils.sendEvaluationCycleCompleted(context, cycleEndTime)
-    }
-
-    override fun notifyCycleCompletionNow(context: Context) {
-        NotificationUtils.postEvaluationCycleCompletedNow(context)
+        NotificationUtils.sendEvaluationCycleCompletedNow(context, plan, finalUsageMs)
     }
 }

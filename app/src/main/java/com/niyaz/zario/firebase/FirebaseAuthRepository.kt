@@ -22,11 +22,15 @@ class FirebaseAuthRepository @Inject constructor(
 
     override suspend fun signUp(request: SignupRequest): Result<User> = withContext(Dispatchers.IO) {
         runCatching {
-            val authResult = auth.createUserWithEmailAndPassword(request.email, request.password).await()
+            val authResult = withFirebaseTimeout {
+                auth.createUserWithEmailAndPassword(request.email, request.password).await()
+            }
             val user = authResult.user ?: throw IllegalStateException("FirebaseAuth did not return a user")
             val userId = user.uid
 
-            userGateway.upsertUserProfile(userId, request.toProfilePayload())
+            withFirebaseTimeout {
+                userGateway.upsertUserProfile(userId, request.toProfilePayload())
+            }
 
             runCatching {
                 syncCoordinator.syncFromRemote(userId, request.email)
@@ -38,11 +42,15 @@ class FirebaseAuthRepository @Inject constructor(
 
     override suspend fun login(email: String, password: String): Result<User> = withContext(Dispatchers.IO) {
         runCatching {
-            val authResult = auth.signInWithEmailAndPassword(email, password).await()
+            val authResult = withFirebaseTimeout {
+                auth.signInWithEmailAndPassword(email, password).await()
+            }
             val firebaseUser = authResult.user ?: throw IllegalStateException("FirebaseAuth did not return a user")
             val userId = firebaseUser.uid
 
-            val snapshot = userGateway.fetchUserProfile(userId)
+            val snapshot = withFirebaseTimeout {
+                userGateway.fetchUserProfile(userId)
+            }
 
             runCatching {
                 syncCoordinator.syncFromRemote(userId, firebaseUser.email ?: email)

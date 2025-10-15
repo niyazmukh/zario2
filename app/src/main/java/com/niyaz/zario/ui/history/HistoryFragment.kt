@@ -139,6 +139,12 @@ class HistoryFragment : Fragment() {
             tvLoading.isVisible = isLoading
 
             if (!isLoading) {
+                val formattedTotal = TimeUtils.formatTimeForDisplay(requireContext(), state.totalUsageMs)
+                tvTotalUsage.text = getString(R.string.history_total_usage_label, formattedTotal)
+            }
+            tvTotalUsage.isVisible = !isLoading
+
+            if (!isLoading) {
                 hourlyUsageAdapter.submitData(state.hourlyUsage, state.maxHourlyDurationMs)
             }
 

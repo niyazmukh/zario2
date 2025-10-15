@@ -48,8 +48,8 @@ class CycleStateStore @Inject constructor(
         planPreferencesDataSource.markFeedbackViewed()
     }
 
-    suspend fun resetCompletionFlags() {
-        planPreferencesDataSource.resetEvaluationCompletionFlag()
+    suspend fun resetCompletionFlags(forceClear: Boolean = false) {
+        planPreferencesDataSource.resetEvaluationCompletionFlag(forceClear)
     }
 
     suspend fun incrementGoalSuccessStreak(): Int {

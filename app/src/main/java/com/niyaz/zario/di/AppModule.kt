@@ -2,10 +2,12 @@ package com.niyaz.zario.di
 
 import android.content.Context
 import androidx.room.Room
+import androidx.room.RoomDatabase
 import com.niyaz.zario.data.local.AppDatabase
 import com.niyaz.zario.data.local.dao.EvaluationHistoryDao
 import com.niyaz.zario.data.local.dao.HourlyUsageDao
 import com.niyaz.zario.data.local.dao.RemoteSyncDao
+import com.niyaz.zario.data.local.migrations.RoomMigrations
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -37,7 +39,11 @@ object AppModule {
             context,
             AppDatabase::class.java,
             "zario_db"
-        ).fallbackToDestructiveMigration().build()
+        )
+            .setJournalMode(RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)
+            .addMigrations(*RoomMigrations.ALL)
+            .fallbackToDestructiveMigrationOnDowngrade()
+            .build()
     }
 
     @Provides

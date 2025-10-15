@@ -3,7 +3,7 @@ package com.niyaz.zario.core.evaluation
 import com.niyaz.zario.data.ScreenTimePlan
 import com.niyaz.zario.data.local.entities.AppUsageHourlyEntry
 import com.niyaz.zario.data.local.entities.EvaluationHistoryEntry
-import com.niyaz.zario.utils.UsageStatsUtils
+import com.niyaz.zario.usage.UsageBucket
 import javax.inject.Inject
 
 /**
@@ -21,7 +21,7 @@ interface EvaluationRemoteDataSource {
     suspend fun syncHourlySnapshots(
         planLabel: String,
         cycleStartTime: Long,
-        buckets: List<UsageStatsUtils.UsageBucket>
+        buckets: List<UsageBucket>
     )
 }
 
@@ -39,6 +39,6 @@ class NoOpEvaluationRemoteDataSource @Inject constructor() : EvaluationRemoteDat
     override suspend fun syncHourlySnapshots(
         planLabel: String,
         cycleStartTime: Long,
-        buckets: List<UsageStatsUtils.UsageBucket>
+        buckets: List<UsageBucket>
     ) = Unit
 }

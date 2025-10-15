@@ -32,10 +32,10 @@ object Constants {
 	// Worker scheduling thresholds (seconds)
 	val USAGE_NOTIFICATION_THRESHOLDS = listOf(50, 75, 90)
 	const val MAX_WORKER_RETRIES = 3
-	const val WORKER_IDLE_INTERVAL_SECONDS = 1_800L   // 30 minutes
-	const val WORKER_ACTIVE_INTERVAL_SECONDS = 900L   // 15 minutes
-	const val WORKER_CRITICAL_INTERVAL_SECONDS = 300L // 5 minutes
-	const val WORKER_NIGHT_INTERVAL_SECONDS = 3_600L  // 1 hour
+	const val WORKER_IDLE_INTERVAL_SECONDS = 900L   // 15 minutes
+	const val WORKER_ACTIVE_INTERVAL_SECONDS = 300L   // 5 minutes
+	const val WORKER_CRITICAL_INTERVAL_SECONDS = 100L // 1.6 minutes
+	const val WORKER_NIGHT_INTERVAL_SECONDS = 1_800L  // 3 minutes
 
 	// Usage progress thresholds
 	const val PROGRESS_MAX_PERCENTAGE = 100f

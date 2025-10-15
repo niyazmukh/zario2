@@ -21,4 +21,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "zario"
 include(":app")
+include(":usage-core")
  

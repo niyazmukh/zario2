@@ -1,6 +1,6 @@
 package com.niyaz.zario.ui.history
 
-import com.niyaz.zario.utils.UsageStatsUtils
+import com.niyaz.zario.usage.UsageBucket
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.util.concurrent.TimeUnit
@@ -24,7 +24,7 @@ class HistoryUsageAggregationEdgeCasesTest {
     @Test
     fun `aggregateUsage keeps zero valued packages without affecting bar totals`() {
         val start = LocalDateTime.of(2024, 9, 27, 10, 0).atZone(zoneId).toInstant().toEpochMilli()
-        val bucket = UsageStatsUtils.UsageBucket(
+    val bucket = UsageBucket(
             bucketStartMs = start,
             bucketEndMs = start + TimeUnit.HOURS.toMillis(1),
             totalsByPackage = mapOf(
@@ -43,7 +43,7 @@ class HistoryUsageAggregationEdgeCasesTest {
     @Test
     fun `aggregateUsage applies package filter`() {
         val start = LocalDateTime.of(2024, 9, 28, 9, 0).atZone(zoneId).toInstant().toEpochMilli()
-        val bucket = UsageStatsUtils.UsageBucket(
+    val bucket = UsageBucket(
             bucketStartMs = start,
             bucketEndMs = start + TimeUnit.HOURS.toMillis(1),
             totalsByPackage = mapOf(
