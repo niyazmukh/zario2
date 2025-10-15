@@ -71,3 +71,11 @@ baselineProfiles/
 # Misc
 proguard-*.pro
 
+# Documentation and scripts folders
+docs/
+scripts/
+
+# MD reports and summaries
+*report*.md
+*summary*.md
+
