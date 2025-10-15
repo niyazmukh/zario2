@@ -22,7 +22,7 @@ import com.niyaz.zario.data.local.entities.PendingHourlySyncEntity
         HourlySyncStateEntity::class
     ],
     version = 5,
-    exportSchema = false
+    exportSchema = true
 )
 @TypeConverters(RemoteSyncTypeConverters::class)
 abstract class AppDatabase : RoomDatabase() {

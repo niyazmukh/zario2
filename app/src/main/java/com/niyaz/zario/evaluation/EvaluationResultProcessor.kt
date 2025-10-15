@@ -10,8 +10,8 @@ import com.niyaz.zario.data.local.entities.EvaluationHistoryEntry
 import com.niyaz.zario.domain.PointsCalculator
 import com.niyaz.zario.repository.UserSessionRepository
 import com.niyaz.zario.security.UserIdentity
+import com.niyaz.zario.usage.UsageBucket
 import com.niyaz.zario.utils.CalendarUtils
-import com.niyaz.zario.utils.UsageStatsUtils
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -36,7 +36,7 @@ class EvaluationResultProcessor @Inject constructor(
         finalUsageMs: Long,
         evaluationStartTime: Long,
         evaluationEndTime: Long,
-        hourlyUsage: List<UsageStatsUtils.UsageBucket> = emptyList()
+    hourlyUsage: List<UsageBucket> = emptyList()
     ): Result {
         val session: UserSession = sessionRepository.awaitSession()
         val user = session.user

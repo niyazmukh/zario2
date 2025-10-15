@@ -16,6 +16,7 @@ import com.niyaz.zario.Constants
 import com.niyaz.zario.R
 import com.niyaz.zario.databinding.FragmentPermissionsBinding
 import com.niyaz.zario.permissions.PermissionsManager
+import com.niyaz.zario.utils.BatteryOptimizationUtils
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
@@ -72,6 +73,11 @@ class PermissionsFragment : Fragment() {
             requestUsageStatsPermission()
         }
 
+        binding.cardBatteryPermission.setOnClickListener {
+            Log.d(TAG, "Battery optimization card clicked")
+            requestBatteryOptimization()
+        }
+
         binding.btnContinue.setOnClickListener {
             Log.d(TAG, "Continue button clicked")
             // Navigate to target selection screen
@@ -126,11 +132,32 @@ class PermissionsFragment : Fragment() {
         }
     }
 
+    private fun requestBatteryOptimization() {
+        Log.d(TAG, "requestBatteryOptimization called")
+        
+        activity?.let { activity ->
+            if (BatteryOptimizationUtils.isIgnoringBatteryOptimizations(activity)) {
+                Log.d(TAG, "Battery optimization already disabled")
+                updateBatteryOptimizationUI(true)
+            } else {
+                Log.d(TAG, "Opening battery optimization settings directly")
+                BatteryOptimizationUtils.requestBatteryOptimizationExemption(activity)
+            }
+        }
+    }
+
     private fun updatePermissionStates() {
         Log.d(TAG, "Updating permission states")
         val state = permissionsManager.refresh()
         updateNotificationPermissionUI(state.hasNotificationPermission)
         updateUsageStatsPermissionUI(state.hasUsageStatsPermission)
+        
+        // Check battery optimization
+        activity?.let { activity ->
+            val batteryOptimizationDisabled = BatteryOptimizationUtils.isIgnoringBatteryOptimizations(activity)
+            updateBatteryOptimizationUI(batteryOptimizationDisabled)
+        }
+        
         updateContinueButtonState(state)
     }
 
@@ -154,12 +181,30 @@ class PermissionsFragment : Fragment() {
         binding.cardUsagePermission.isEnabled = !granted
     }
 
+    private fun updateBatteryOptimizationUI(granted: Boolean) {
+        Log.d(TAG, "Updating battery optimization UI: disabled=$granted")
+        binding.tvBatteryStatus.text = if (granted) {
+            getString(R.string.permission_granted)
+        } else {
+            getString(R.string.grant_permission)
+        }
+        binding.cardBatteryPermission.isEnabled = !granted
+    }
+
     private fun updateContinueButtonState(state: PermissionsManager.PermissionsState = permissionsManager.currentState()) {
         val notificationPermission = state.hasNotificationPermission
         val usagePermission = state.hasUsageStatsPermission
-        val allPermissionsGranted = notificationPermission && usagePermission
         
-        Log.d(TAG, "Continue button state: notification=$notificationPermission, usage=$usagePermission, all=$allPermissionsGranted")
+        // Check battery optimization separately
+        val batteryOptimizationDisabled = activity?.let { 
+            BatteryOptimizationUtils.isIgnoringBatteryOptimizations(it) 
+        } ?: false
+        
+        val allPermissionsGranted = notificationPermission && 
+                                    usagePermission && 
+                                    batteryOptimizationDisabled
+        
+        Log.d(TAG, "Continue button state: notification=$notificationPermission, usage=$usagePermission, battery=$batteryOptimizationDisabled, all=$allPermissionsGranted")
         
         binding.btnContinue.isEnabled = allPermissionsGranted
         binding.btnContinue.text = if (allPermissionsGranted) {

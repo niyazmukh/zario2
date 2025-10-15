@@ -195,7 +195,6 @@
                         android:valueTo="40"
                         android:stepSize="1"
                         android:value="20"
-                        android:layoutDirection="rtl"
                         app:thumbColor="@color/evaluation_exceeded"
                         app:trackColorActive="@color/evaluation_exceeded"
                         app:trackColorInactive="@color/white" />

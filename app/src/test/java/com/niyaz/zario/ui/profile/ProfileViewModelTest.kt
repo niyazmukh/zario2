@@ -93,7 +93,58 @@ class ProfileViewModelTest {
 
         val state = viewModel.uiState.value
         assertTrue("Expected cycles to be populated", state.cycles.isNotEmpty())
-        assertEquals("Expected total points to match last entry", entry.pointsBalanceAfter, state.totalPoints)
-        assertEquals("Expected met cycles count to reflect history entry", 1, state.cyclesMet)
+    assertEquals("Expected total points to match last entry", entry.pointsBalanceAfter, state.totalPoints)
+    assertEquals("Expected met cycles count to reflect history entry", 1, state.cyclesMet)
+    assertEquals("Expected elapsed cycles to reflect history size", 1, state.cyclesElapsed)
+    }
+
+    @Test
+    fun test_profileState__when_historyUnsorted__expect_latestPointsAndDescendingCycles() = runTest {
+        val email = "user@example.com"
+        val userId = UserIdentity.fromEmail(email)
+        val user = User(
+            email = email,
+            id = userId,
+            yearOfBirth = "1990",
+            gender = "Other",
+            condition = Condition.CONTROL,
+            points = 100
+        )
+        sessionFlow.value = UserSession(isLoggedIn = true, user = user)
+
+        val viewModel = ProfileViewModel(userSessionRepository, evaluationHistoryDao)
+
+        val epochDay0 = Instant.parse("2024-09-27T00:00:00Z").toEpochMilli()
+        val entryNewest = EvaluationHistoryEntry(
+            id = 3L,
+            userId = userId,
+            userEmail = email,
+            planLabel = "focus",
+            goalTimeMs = 3_600_000L,
+            dailyAverageMs = 3_000_000L,
+            finalUsageMs = 2_500_000L,
+            evaluationStartTime = epochDay0,
+            evaluationEndTime = epochDay0 + 2 * 86_400_000L,
+            metGoal = true,
+            pointsDelta = 7,
+            pointsBalanceAfter = 121
+        )
+        val entryMiddle = entryNewest.copy(
+            id = 2L,
+            evaluationEndTime = epochDay0 + 86_400_000L,
+            pointsBalanceAfter = 114
+        )
+        val entryOldest = entryNewest.copy(
+            id = 1L,
+            evaluationEndTime = epochDay0,
+            pointsBalanceAfter = 107
+        )
+
+        historyFlow.tryEmit(listOf(entryOldest, entryNewest, entryMiddle))
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(listOf(121, 114, 107), state.cycles.map { it.pointsAfter })
+        assertEquals(121, state.totalPoints)
     }
 }

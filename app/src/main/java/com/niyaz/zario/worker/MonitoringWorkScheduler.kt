@@ -27,11 +27,11 @@ class MonitoringWorkScheduler @Inject constructor(
 
         workManager.enqueueUniqueWork(
             UsageMonitoringWorker.WORK_NAME,
-            ExistingWorkPolicy.REPLACE,
+            ExistingWorkPolicy.KEEP,
             monitoringWork
         )
 
-        logDebug("Usage monitoring work enqueued (REPLACE policy)")
+        logDebug("Usage monitoring work enqueued (KEEP policy - preserves in-flight work)")
     }
 
     fun enqueueScheduler(delaySeconds: Long = 0L) {

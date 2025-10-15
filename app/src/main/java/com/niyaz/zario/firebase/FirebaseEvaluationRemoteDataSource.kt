@@ -11,8 +11,8 @@ import com.niyaz.zario.data.local.entities.HourlySyncStateEntity
 import com.niyaz.zario.data.local.entities.PendingCycleSyncEntity
 import com.niyaz.zario.data.local.entities.PendingHourlySyncEntity
 import com.niyaz.zario.data.local.entities.PendingHourlySyncEntity.SyncType
+import com.niyaz.zario.usage.UsageBucket
 import com.niyaz.zario.utils.CalendarUtils
-import com.niyaz.zario.utils.UsageStatsUtils
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -85,7 +85,7 @@ class FirebaseEvaluationRemoteDataSource @Inject constructor(
     override suspend fun syncHourlySnapshots(
         planLabel: String,
         cycleStartTime: Long,
-        buckets: List<UsageStatsUtils.UsageBucket>
+        buckets: List<UsageBucket>
     ) {
         val (userId, userEmail) = resolveUserIdOrNull() ?: return
         val now = System.currentTimeMillis()

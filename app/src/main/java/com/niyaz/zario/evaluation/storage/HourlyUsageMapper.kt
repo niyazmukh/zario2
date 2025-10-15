@@ -1,7 +1,7 @@
 package com.niyaz.zario.core.evaluation.storage
 
 import com.niyaz.zario.data.local.entities.AppUsageHourlyEntry
-import com.niyaz.zario.utils.UsageStatsUtils
+import com.niyaz.zario.usage.UsageBucket
 
 internal object HourlyUsageMapper {
     fun map(
@@ -9,7 +9,7 @@ internal object HourlyUsageMapper {
         userEmail: String,
         planLabel: String,
         cycleStartTime: Long,
-        buckets: List<UsageStatsUtils.UsageBucket>
+    buckets: List<UsageBucket>
     ): List<AppUsageHourlyEntry> {
         if (userId.isBlank()) return emptyList()
         return buckets.flatMap { bucket ->

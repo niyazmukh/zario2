@@ -1,6 +1,9 @@
 package com.niyaz.zario
 
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavController
@@ -16,7 +19,12 @@ class MainActivity : AppCompatActivity() {
     
     private lateinit var binding: ActivityMainBinding
     private lateinit var navController: NavController
+    
     @Inject lateinit var evaluationRepository: EvaluationRepository
+
+    companion object {
+        private const val TAG = "MainActivity"
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -25,6 +33,7 @@ class MainActivity : AppCompatActivity() {
         
         setupNavigation()
         handleNavigationIntent()
+        // Removed intrusive permission checks - handled by SplashFragment navigation
     }
 
     private fun setupNavigation() {

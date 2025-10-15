@@ -180,6 +180,18 @@
                     tools:text="Earn 10 points if you stay under goal, lose 0 points otherwise."
                     tools:visibility="visible" />
             </LinearLayout>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_simulate_cycle_completion"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/spacing_md"
+                android:text="@string/profile_debug_simulate_cycle"
+                android:textAlignment="center"
+                android:visibility="gone"
+                tools:text="@string/profile_debug_simulate_cycle"
+                tools:visibility="visible" />
         </LinearLayout>
 
     </LinearLayout>

@@ -71,7 +71,7 @@ class UsageMonitoringWorker @AssistedInject constructor(
                 return completeEvaluation(evaluationStartTime, evaluationEndTime, activePlan)
             }
 
-            val usageSnapshot = usageStatsRepository.getSnapshot()
+            val usageSnapshot = usageStatsRepository.getSnapshot(forceRefresh = true)
             val currentUsage = usageSnapshot.totalUsageMs
 
             captureHourlySnapshotsIfNeeded(activePlan, evaluationStartTime, currentTime)
@@ -82,6 +82,8 @@ class UsageMonitoringWorker @AssistedInject constructor(
 
             if (activePlan.goalTimeMs > 0) {
                 val highestNotified = repository.getHighestUsageNotification()
+                val lastNotificationTime = repository.getLastNotificationTime()
+                val now = System.currentTimeMillis()
                 val thresholds = Constants.USAGE_NOTIFICATION_THRESHOLDS
                 var thresholdToNotify: Int? = null
 
@@ -90,7 +92,12 @@ class UsageMonitoringWorker @AssistedInject constructor(
 
                     val thresholdUsage = activePlan.goalTimeMs * thresholdPercent / 100
                     if (currentUsage >= thresholdUsage) {
-                        thresholdToNotify = thresholdPercent
+                        // Enforce 5-minute cooldown between notifications (prevent spam on worker restarts)
+                        val canNotify = lastNotificationTime == null ||
+                            (now - lastNotificationTime) >= NOTIFICATION_COOLDOWN_MS
+                        if (canNotify) {
+                            thresholdToNotify = thresholdPercent
+                        }
                     } else {
                         break
                     }
@@ -126,13 +133,17 @@ class UsageMonitoringWorker @AssistedInject constructor(
 
     private suspend fun completeEvaluation(startTime: Long, endTime: Long, plan: ScreenTimePlan): Result {
         return try {
-            val finalUsage = usageStatsRepository.getSnapshot(forceRefresh = true).totalUsageMs
-
             val hourlyUsage = usageStatsRepository.getUsageBuckets(
                 startMillis = startTime,
                 endMillis = endTime,
                 bucketSizeMillis = TimeUnit.HOURS.toMillis(1)
             )
+
+            val finalUsage = if (hourlyUsage.isNotEmpty()) {
+                hourlyUsage.sumOf { bucket -> bucket.totalsByPackage.values.sum() }
+            } else {
+                usageStatsRepository.getSnapshot(forceRefresh = true).totalUsageMs
+            }
 
             val result = resultProcessor.finalizeCycle(
                 plan = plan,
@@ -142,7 +153,8 @@ class UsageMonitoringWorker @AssistedInject constructor(
                 hourlyUsage = hourlyUsage
             )
 
-            notificationDispatcher.scheduleCycleCompletionNotification(appContext, endTime)
+            // Send cycle completion notification immediately
+            notificationDispatcher.notifyCycleCompletionNow(appContext, plan, finalUsage)
 
             val delayMs = (result.nextCycleStartTime - System.currentTimeMillis()).coerceAtLeast(0L)
             monitoringWorkScheduler.enqueueSchedulerWithDelayMillis(delayMs)
@@ -192,11 +204,15 @@ class UsageMonitoringWorker @AssistedInject constructor(
             cycleStartTime = evaluationStartTime,
             buckets = buckets
         )
+
+        val purgeBefore = buckets.minOfOrNull { it.bucketStartMs } ?: evaluationStartTime
+        usageStatsRepository.purgeRawEventsBefore(purgeBefore)
     }
 
     companion object {
         const val TAG = "UsageMonitoringWorker"
         const val WORK_NAME = "usage_monitoring"
+        private const val NOTIFICATION_COOLDOWN_MS = 5 * 60 * 1000L // 5 minutes
 
         const val OUTPUT_CURRENT_USAGE = "current_usage"
         const val OUTPUT_ELAPSED_TIME = "elapsed_time"

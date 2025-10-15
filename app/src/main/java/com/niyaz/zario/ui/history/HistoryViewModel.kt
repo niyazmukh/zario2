@@ -11,7 +11,7 @@ import com.niyaz.zario.data.User
 import com.niyaz.zario.data.local.dao.EvaluationHistoryDao
 import com.niyaz.zario.repository.UserSessionRepository
 import com.niyaz.zario.security.UserIdentity
-import com.niyaz.zario.utils.UsageStatsUtils
+import com.niyaz.zario.usage.UsageBucket
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.time.Instant
@@ -49,7 +49,7 @@ class HistoryViewModel @Inject constructor(
     private val zoneId: ZoneId = ZoneId.systemDefault()
     private val dateFormatter: DateTimeFormatter =
         DateTimeFormatter.ofPattern(Constants.HISTORY_DATE_FORMAT, Locale.getDefault())
-    private val minDisplayDurationMs: Long = TimeUnit.MINUTES.toMillis(1)
+    private val zeroDurationThresholdMs: Long = 0L
 
     private val _filterLabel = MutableStateFlow<String?>(null)
     val filterLabel: StateFlow<String?> = _filterLabel.asStateFlow()
@@ -57,7 +57,7 @@ class HistoryViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(createInitialUiState())
     val uiState: StateFlow<UsageUiState> = _uiState.asStateFlow()
 
-    private var latestBuckets: List<UsageStatsUtils.UsageBucket> = emptyList()
+    private var latestBuckets: List<UsageBucket> = emptyList()
     private var latestAllAggregation: UsageAggregation = UsageAggregation(emptyHourlyBars(), emptyMap())
 
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
@@ -182,9 +182,28 @@ class HistoryViewModel @Inject constructor(
         }
 
         result.onSuccess { buckets ->
-            val aggregation = aggregateUsage(buckets, zoneId)
-            val entries = aggregation.packageTotals
-                .filterValues { it >= minDisplayDurationMs }
+            val baseAggregation = aggregateUsage(buckets, zoneId)
+            val isTodayRange = isCurrentDay(range)
+            val canonicalTotals = if (isTodayRange) {
+                runCatching {
+                    usageStatsRepository
+                        .getDailySummary(LocalDate.now(zoneId), forceRefresh = true)
+                        .totalsByPackage
+                }.onFailure { error ->
+                    Log.w(TAG, "Failed to obtain canonical daily totals; falling back to bucket aggregation", error)
+                }.getOrElse { baseAggregation.packageTotals }
+            } else {
+                baseAggregation.packageTotals
+            }
+
+            val aggregation = if (isTodayRange) {
+                baseAggregation.copy(packageTotals = canonicalTotals)
+            } else {
+                baseAggregation
+            }
+
+            val entries = canonicalTotals
+                .filterValues { it > zeroDurationThresholdMs }
                 .map { (packageName, duration) ->
                     TodayUsageEntry(
                         packageName = packageName,
@@ -218,7 +237,8 @@ class HistoryViewModel @Inject constructor(
                     entries = entries,
                     chartEmpty = isChartEmpty,
                     maxHourlyDurationMs = maxDurationForChart,
-                    selectedPackages = validSelection
+                    selectedPackages = validSelection,
+                    totalUsageMs = canonicalTotals.values.sum()
                 )
             }
         }.onFailure { error ->
@@ -232,7 +252,8 @@ class HistoryViewModel @Inject constructor(
                     entries = emptyList(),
                     chartEmpty = true,
                     maxHourlyDurationMs = 0L,
-                    selectedPackages = emptySet()
+                    selectedPackages = emptySet(),
+                    totalUsageMs = 0L
                 )
             }
         }
@@ -287,7 +308,8 @@ class HistoryViewModel @Inject constructor(
             dateLabel = formatDateRange(defaultRange),
             chartEmpty = true,
             maxHourlyDurationMs = 0L,
-            selectedPackages = emptySet()
+            selectedPackages = emptySet(),
+            totalUsageMs = 0L
         )
     }
 
@@ -322,6 +344,11 @@ class HistoryViewModel @Inject constructor(
         return DateRange(start, end).normalize()
     }
 
+    private fun isCurrentDay(range: DateRange): Boolean {
+        val today = LocalDate.now(zoneId)
+        return range.start == today && range.end == today
+    }
+
     private fun epochMillisToLocalDate(epochMillis: Long): LocalDate =
         Instant.ofEpochMilli(epochMillis).atZone(zoneId).toLocalDate()
 
@@ -352,7 +379,8 @@ class HistoryViewModel @Inject constructor(
     data class TodayUsageEntry(
         val packageName: String,
         val appLabel: String,
-        val durationMs: Long
+        val durationMs: Long,
+        val isAggregate: Boolean = false
     )
 
     data class DateRange(
@@ -382,7 +410,8 @@ class HistoryViewModel @Inject constructor(
         val dateLabel: String,
         val chartEmpty: Boolean,
         val maxHourlyDurationMs: Long,
-        val selectedPackages: Set<String>
+        val selectedPackages: Set<String>,
+        val totalUsageMs: Long
     )
 
     companion object {
@@ -399,7 +428,7 @@ class HistoryViewModel @Inject constructor(
         )
 
         internal fun aggregateUsage(
-            buckets: List<UsageStatsUtils.UsageBucket>,
+            buckets: List<UsageBucket>,
             zoneId: ZoneId,
             packageFilter: Set<String>? = null
         ): UsageAggregation {

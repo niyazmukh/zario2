@@ -1,6 +1,6 @@
 package com.niyaz.zario.ui.history
 
-import com.niyaz.zario.utils.UsageStatsUtils
+import com.niyaz.zario.usage.UsageBucket
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.util.concurrent.TimeUnit
@@ -14,7 +14,7 @@ class HistoryViewModelTest {
     @Test
     fun test_aggregateUsage__when_singleBucket__expect_hourTotalAssigned() {
         val start = LocalDateTime.of(2024, 9, 27, 8, 0).atZone(zoneId).toInstant().toEpochMilli()
-        val bucket = UsageStatsUtils.UsageBucket(
+    val bucket = UsageBucket(
             bucketStartMs = start,
             bucketEndMs = start + TimeUnit.HOURS.toMillis(1),
             totalsByPackage = mapOf(
@@ -33,12 +33,12 @@ class HistoryViewModelTest {
     fun test_aggregateUsage__when_multipleDaysSameHour__expect_valuesSummed() {
         val dayOne = LocalDateTime.of(2024, 9, 25, 21, 0).atZone(zoneId).toInstant().toEpochMilli()
         val dayTwo = LocalDateTime.of(2024, 9, 26, 21, 0).atZone(zoneId).toInstant().toEpochMilli()
-        val bucketOne = UsageStatsUtils.UsageBucket(
+    val bucketOne = UsageBucket(
             bucketStartMs = dayOne,
             bucketEndMs = dayOne + TimeUnit.HOURS.toMillis(1),
             totalsByPackage = mapOf("pkg.a" to TimeUnit.MINUTES.toMillis(20))
         )
-        val bucketTwo = UsageStatsUtils.UsageBucket(
+    val bucketTwo = UsageBucket(
             bucketStartMs = dayTwo,
             bucketEndMs = dayTwo + TimeUnit.HOURS.toMillis(1),
             totalsByPackage = mapOf("pkg.a" to TimeUnit.MINUTES.toMillis(40))
@@ -53,7 +53,7 @@ class HistoryViewModelTest {
     @Test
     fun test_aggregateUsage__when_multiplePackages__expect_totalsPerPackage() {
         val start = LocalDateTime.of(2024, 9, 27, 14, 0).atZone(zoneId).toInstant().toEpochMilli()
-        val bucket = UsageStatsUtils.UsageBucket(
+    val bucket = UsageBucket(
             bucketStartMs = start,
             bucketEndMs = start + TimeUnit.HOURS.toMillis(1),
             totalsByPackage = mapOf(

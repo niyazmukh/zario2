@@ -7,7 +7,7 @@ import com.niyaz.zario.data.local.dao.RemoteSyncDao
 import com.niyaz.zario.data.local.entities.AppUsageHourlyEntry
 import com.niyaz.zario.data.local.entities.EvaluationHistoryEntry
 import com.niyaz.zario.data.local.entities.PendingHourlySyncEntity
-import com.niyaz.zario.utils.UsageStatsUtils
+import com.niyaz.zario.usage.UsageBucket
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -97,12 +97,12 @@ class FirebaseEvaluationRemoteDataSourceTest {
         every { auth.currentUser } returns user
 
         val buckets = listOf(
-            UsageStatsUtils.UsageBucket(
+            UsageBucket(
                 bucketStartMs = 3_600_000L,
                 bucketEndMs = 7_200_000L,
                 totalsByPackage = mapOf("pkg" to 1200L)
             ),
-            UsageStatsUtils.UsageBucket(
+            UsageBucket(
                 bucketStartMs = 7_200_000L,
                 bucketEndMs = 10_800_000L,
                 totalsByPackage = emptyMap()

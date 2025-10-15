@@ -57,9 +57,11 @@ class ProfileViewModel @Inject constructor(
                 }
 
                 evaluationHistoryDao.getAllForUser(idsForQuery, user.email).collectLatest { entries ->
-                    val daysSinceSignup = computeDaysSinceSignup(entries)
-                    val cyclesMet = entries.count { it.metGoal }
-                    val cycles = entries.map { entry ->
+                    val sortedEntries = entries.sortedByDescending(EvaluationHistoryEntry::evaluationEndTime)
+                    val daysSinceSignup = computeDaysSinceSignup(sortedEntries)
+                    val cyclesMet = sortedEntries.count { it.metGoal }
+                    val cyclesElapsed = sortedEntries.size
+                    val cycles = sortedEntries.map { entry ->
                         val status = if (entry.metGoal) {
                             ProfileCycleStatus.MET
                         } else {
@@ -79,7 +81,8 @@ class ProfileViewModel @Inject constructor(
                             email = user.email,
                             daysSinceSignup = daysSinceSignup,
                             cyclesMet = cyclesMet,
-                            totalPoints = resolveTotalPoints(user, entries),
+                            cyclesElapsed = cyclesElapsed,
+                            totalPoints = resolveTotalPoints(user, sortedEntries),
                             cycles = cycles,
                             condition = user.condition,
                             flexibleReward = user.flexibleReward,
@@ -110,7 +113,8 @@ class ProfileViewModel @Inject constructor(
     }
 
     private fun resolveTotalPoints(user: User, entries: List<EvaluationHistoryEntry>): Int {
-        return entries.firstOrNull()?.pointsBalanceAfter ?: user.points
+        return entries.maxByOrNull(EvaluationHistoryEntry::evaluationEndTime)?.pointsBalanceAfter
+            ?: user.points
     }
 
     data class ProfileUiState(
@@ -118,6 +122,7 @@ class ProfileViewModel @Inject constructor(
         val email: String = "",
         val daysSinceSignup: Int = 0,
         val cyclesMet: Int = 0,
+    val cyclesElapsed: Int = 0,
         val totalPoints: Int = 0,
         val cycles: List<ProfileCycleItem> = emptyList(),
         val condition: Condition? = null,

@@ -78,8 +78,13 @@ class PlanPreferencesDataSource @Inject constructor(
             val current = prefs[Keys.USAGE_THRESHOLD_REACHED] ?: 0
             if (thresholdPercent > current) {
                 prefs[Keys.USAGE_THRESHOLD_REACHED] = thresholdPercent
+                prefs[Keys.LAST_NOTIFICATION_TIME] = System.currentTimeMillis()
             }
         }
+    }
+
+    suspend fun getLastNotificationTime(): Long? {
+        return dataStore.data.first()[Keys.LAST_NOTIFICATION_TIME]
     }
 
     suspend fun markEvaluationCompleted(completionTime: Long) {
@@ -130,10 +135,13 @@ class PlanPreferencesDataSource @Inject constructor(
         }
     }
 
-    suspend fun resetEvaluationCompletionFlag() {
+    suspend fun resetEvaluationCompletionFlag(forceClear: Boolean = false) {
         dataStore.edit { prefs ->
-            prefs[Keys.EVALUATION_COMPLETED] = false
-            prefs.remove(Keys.EVALUATION_COMPLETION_TIME)
+            val feedbackViewed = prefs[Keys.FEEDBACK_VIEWED] ?: true
+            if (forceClear || feedbackViewed) {
+                prefs[Keys.EVALUATION_COMPLETED] = false
+                prefs.remove(Keys.EVALUATION_COMPLETION_TIME)
+            }
         }
     }
 
@@ -206,6 +214,7 @@ class PlanPreferencesDataSource @Inject constructor(
         val EVALUATION_COMPLETION_TIME = longPreferencesKey("evaluation_completion_time")
         val FEEDBACK_VIEWED = booleanPreferencesKey("feedback_viewed")
         val GOAL_SUCCESS_STREAK = intPreferencesKey("goal_success_streak")
+        val LAST_NOTIFICATION_TIME = longPreferencesKey("last_notification_time")
     }
 }
 

@@ -16,8 +16,8 @@ import com.niyaz.zario.data.ScreenTimePlan
 import com.niyaz.zario.databinding.FragmentTargetBinding
 import com.niyaz.zario.permissions.PermissionsManager
 import com.niyaz.zario.core.evaluation.EvaluationRepository
+import com.niyaz.zario.core.usage.UsageStatsRepository
 import com.niyaz.zario.utils.TimeUtils
-import com.niyaz.zario.utils.UsageStatsUtils
 import com.niyaz.zario.worker.MonitoringWorkScheduler
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -36,6 +36,7 @@ class TargetFragment : Fragment() {
     @Inject lateinit var evaluationRepository: EvaluationRepository
     @Inject lateinit var permissionsManager: PermissionsManager
     @Inject lateinit var monitoringWorkScheduler: MonitoringWorkScheduler
+    @Inject lateinit var usageStatsRepository: UsageStatsRepository
 
     private var todayUsageMs: Long = 0L
     private var trailingAverageMs: Long = 0L
@@ -98,9 +99,7 @@ class TargetFragment : Fragment() {
         showLoading()
 
         viewLifecycleOwner.lifecycleScope.launch {
-            val usageSummary = withContext(Dispatchers.IO) {
-                UsageStatsUtils.getGlobalUsageSummary(requireContext())
-            }
+            val usageSummary = usageStatsRepository.getGlobalUsageSummary(Constants.USAGE_ANALYSIS_DAYS)
 
             todayUsageMs = usageSummary.todayUsageMs
             trailingAverageMs = usageSummary.trailingAverageMs

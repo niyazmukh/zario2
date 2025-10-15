@@ -3,6 +3,7 @@ package com.niyaz.zario.firebase
 import android.content.Context
 import android.util.Log
 import androidx.hilt.work.HiltWorker
+import androidx.work.BackoffPolicy
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.google.firebase.auth.FirebaseAuth
@@ -33,8 +34,11 @@ class RemoteSyncWorker @AssistedInject constructor(
             return@withContext Result.retry()
         }
 
-        runCatching { auth.currentUser?.reload()?.await() }
-            .onFailure { Log.w(TAG, "Failed to refresh auth session before sync", it) }
+        runCatching {
+            withFirebaseTimeout {
+                auth.currentUser?.reload()?.await()
+            }
+        }.onFailure { Log.w(TAG, "Failed to refresh auth session before sync", it) }
 
         var anyFailure = false
 

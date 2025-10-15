@@ -27,7 +27,11 @@ class RemoteSyncScheduler @Inject constructor(
 
         val request = OneTimeWorkRequestBuilder<RemoteSyncWorker>()
             .setConstraints(constraints)
-            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, MIN_BACKOFF_MINUTES, TimeUnit.MINUTES)
+            .setBackoffCriteria(
+                BackoffPolicy.EXPONENTIAL,
+                MIN_BACKOFF_MINUTES,
+                TimeUnit.MINUTES
+            )
             .build()
 
         workManager.enqueueUniqueWork(
@@ -42,6 +46,7 @@ class RemoteSyncScheduler @Inject constructor(
     }
 
     companion object {
+        // Exponential backoff: 5min, 10min, 20min, 40min... (with WorkManager's built-in jitter)
         private const val MIN_BACKOFF_MINUTES = 5L
     }
 }

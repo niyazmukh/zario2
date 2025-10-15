@@ -1,161 +1,166 @@
 package com.niyaz.zario.repository
 
-import com.niyaz.zario.core.usage.UsageStatsDataSource
+import android.content.Context
+import androidx.room.Room
+import androidx.test.core.app.ApplicationProvider
 import com.niyaz.zario.core.usage.UsageStatsRepository
-import com.niyaz.zario.utils.UsageStatsUtils
+import com.niyaz.zario.usage.UsageAggregationConfig
+import com.niyaz.zario.usage.UsageAggregationStore
+import com.niyaz.zario.usage.UsageBucket
+import com.niyaz.zario.usage.UsageTimelineReconciler
+import com.niyaz.zario.usage.ingest.TrackedEventSource
+import com.niyaz.zario.usage.ingest.UsageEventBus
+import com.niyaz.zario.usage.ingest.model.ActivityLifecycleState
+import com.niyaz.zario.usage.ingest.model.EventConfidence
+import com.niyaz.zario.usage.ingest.model.TrackedEvent
+import com.niyaz.zario.usage.tracking.DevicePolicyAdvisor
+import com.niyaz.zario.usage.storage.UsageAggregationDatabase
+import java.time.Clock
+import java.time.Duration
+import java.time.Instant
+import java.time.ZoneId
+import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.test.StandardTestDispatcher
-import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 
+@RunWith(RobolectricTestRunner::class)
 @OptIn(ExperimentalCoroutinesApi::class)
 class UsageStatsRepositoryTest {
 
     @Test
-    fun `refresh succeeds and updates snapshot and foreground`() = runTest {
-    val fakeDataSource = FakeUsageStatsDataSource()
-        val expectedSnapshot = UsageStatsUtils.UsageSnapshot(mapOf("pkg" to 1_500L), generatedAt = 123L)
-        fakeDataSource.enqueueSnapshot(Result.success(expectedSnapshot)) // init refresh
-        fakeDataSource.enqueueForeground(Result.success("pkg"))
+    fun `snapshot reflects ingested sessions and active package`() = runTest {
+        val harness = RepositoryHarness(this)
+        harness.use { repository, scope, _ ->
+            advanceUntilIdle()
 
-        val dispatcher = StandardTestDispatcher(testScheduler)
-        val scope = CoroutineScope(SupervisorJob() + dispatcher)
-
-        val repository = UsageStatsRepository(fakeDataSource, scope)
-        try {
-            runCurrent()
-            val cached = repository.snapshot.value
-            assertEquals(expectedSnapshot, cached)
-            assertEquals("pkg", repository.foregroundPackage.value)
+            val snapshot = repository.getSnapshot(forceRefresh = true)
+            assertEquals(TimeUnit.MINUTES.toMillis(30), snapshot.totalUsageMs)
+            assertEquals("com.example.app", repository.foregroundPackage.value)
             assertEquals(0, repository.refreshStatus.value.consecutiveFailures)
-            assertNotNull(repository.refreshStatus.value.lastSuccessEpochMillis)
-        } finally {
-            scope.cancel()
         }
     }
 
     @Test
-    fun `refresh failure falls back to last snapshot and increments failure counter`() = runTest {
-        val fakeDataSource = FakeUsageStatsDataSource()
-        val initialSnapshot = UsageStatsUtils.UsageSnapshot(mapOf("pkg" to 600L), generatedAt = 999L)
-        fakeDataSource.enqueueSnapshot(Result.success(initialSnapshot)) // init
-        fakeDataSource.enqueueForeground(Result.success("pkg"))
-        val dispatcher = StandardTestDispatcher(testScheduler)
-        val scope = CoroutineScope(SupervisorJob() + dispatcher)
+    fun `getUsageBuckets returns persisted hourly totals`() = runTest {
+        val harness = RepositoryHarness(this)
+        harness.use { repository, scope, config ->
+            advanceUntilIdle()
 
-        val repository = UsageStatsRepository(fakeDataSource, scope)
-        try {
-            runCurrent()
-            val cached = repository.snapshot.value
-            assertEquals(initialSnapshot, cached)
+            val now = FIXED_NOW.toEpochMilli()
+            val startOfDay = startOfDayForConfig(config)
+            val buckets = repository.getUsageBuckets(startOfDay, now, TimeUnit.HOURS.toMillis(1))
 
-            fakeDataSource.enqueueSnapshot(Result.failure(IllegalStateException("boom")))
-            // Foreground fetch won't be invoked on snapshot failure, but enqueue a placeholder for clarity
-            fakeDataSource.enqueueForeground(Result.success(null))
-
-            val fallback = repository.getSnapshot(forceRefresh = true)
-            assertEquals(initialSnapshot, fallback)
-            assertEquals(1, repository.refreshStatus.value.consecutiveFailures)
-            assertEquals("boom", repository.refreshStatus.value.lastErrorMessage)
-        } finally {
-            scope.cancel()
+            assertTrue(buckets.isNotEmpty())
+            val firstBucket = buckets.first { it.bucketStartMs == startOfDay + TimeUnit.HOURS.toMillis(14) }
+            assertEquals(TimeUnit.MINUTES.toMillis(30), firstBucket.totalsByPackage["com.example.app"])
         }
     }
 
     @Test
-    fun `initial failure returns empty snapshot when no cache available`() = runTest {
-        val fakeDataSource = FakeUsageStatsDataSource()
-        fakeDataSource.enqueueSnapshot(Result.failure(IllegalStateException("unavailable")))
-        fakeDataSource.enqueueForeground(Result.success(null))
+    fun `global summary tracks daily totals`() = runTest {
+        val harness = RepositoryHarness(this)
+        harness.use { repository, _, _ ->
+            advanceUntilIdle()
 
-        val dispatcher = StandardTestDispatcher(testScheduler)
-        val scope = CoroutineScope(SupervisorJob() + dispatcher)
-
-        val repository = UsageStatsRepository(fakeDataSource, scope)
-        try {
-            runCurrent()
-            val snapshot = repository.snapshot.value
-            assertNotNull(snapshot)
-            assertTrue(snapshot.totalsByPackage.isEmpty())
-            assertEquals(1, repository.refreshStatus.value.consecutiveFailures)
-            assertEquals("unavailable", repository.refreshStatus.value.lastErrorMessage)
-        } finally {
-            scope.cancel()
+            val summary = repository.getGlobalUsageSummary(3)
+            assertEquals(TimeUnit.MINUTES.toMillis(30), summary.todayUsageMs)
+            assertEquals(1, summary.validDayCount)
         }
     }
 
-    @Test
-    fun `getUsageBuckets delegates to data source`() = runTest {
-        val fakeDataSource = FakeUsageStatsDataSource()
-        val dispatcher = StandardTestDispatcher(testScheduler)
-        val scope = CoroutineScope(SupervisorJob() + dispatcher)
+    private fun startOfDayForConfig(config: UsageAggregationConfig): Long {
+        val zoneId = config.zoneId
+        return FIXED_NOW.atZone(zoneId).toLocalDate().atStartOfDay(zoneId).toInstant().toEpochMilli()
+    }
 
-        val expectedBuckets = listOf(
-            UsageStatsUtils.UsageBucket(
-                bucketStartMs = 0L,
-                bucketEndMs = 60_000L,
-                totalsByPackage = mapOf("pkg" to 2_000L)
-            )
+    private class RepositoryHarness(
+        testScope: kotlinx.coroutines.test.TestScope
+    ) : AutoCloseable {
+        private val dispatcher = StandardTestDispatcher(testScope.testScheduler)
+        private val scope = CoroutineScope(SupervisorJob() + dispatcher)
+        private val context: Context = ApplicationProvider.getApplicationContext()
+        private val config = UsageAggregationConfig(
+            mergeGap = Duration.ofMinutes(1),
+            sliceDuration = Duration.ofHours(6),
+            maxLookback = Duration.ofDays(7),
+            zoneId = ZoneId.of("UTC"),
+            clock = Clock.fixed(FIXED_NOW, ZoneId.of("UTC"))
         )
-        fakeDataSource.enqueueBuckets(Result.success(expectedBuckets))
+        private val eventBus = UsageEventBus(scope)
+        private val fakeEventSource = QueueingTrackedEventSource()
+        private val database: UsageAggregationDatabase = Room.inMemoryDatabaseBuilder(
+            context,
+            UsageAggregationDatabase::class.java
+        ).allowMainThreadQueries().build()
+        private val store = UsageAggregationStore(
+            trackedEventSource = fakeEventSource,
+            timelineReconciler = UsageTimelineReconciler(config),
+            dao = database.usageSessionDao(),
+            rawEventDao = database.usageRawEventDao(),
+            config = config
+        )
+        private val devicePolicyAdvisor = object : DevicePolicyAdvisor() {
+            override fun recommendedRefreshIntervalMillis(): Long = 10_000L
+        }
+        init {
+            fakeEventSource.enqueue(
+                listOf(
+                    TrackedEvent.ActivityLifecycle(
+                        epochMillis = FIXED_NOW.minusSeconds(1800).toEpochMilli(),
+                        confidence = EventConfidence.HIGH,
+                        packageName = "com.example.app",
+                        activityClass = "Main",
+                        state = ActivityLifecycleState.RESUMED
+                    ),
+                    TrackedEvent.ActivityLifecycle(
+                        epochMillis = FIXED_NOW.toEpochMilli(),
+                        confidence = EventConfidence.HIGH,
+                        packageName = "com.example.app",
+                        activityClass = "Main",
+                        state = ActivityLifecycleState.PAUSED
+                    )
+                )
+            )
+        }
+        val repository = UsageStatsRepository(store, config, eventBus, devicePolicyAdvisor, scope)
 
-        val repository = UsageStatsRepository(fakeDataSource, scope)
-        try {
-            runCurrent()
-            val buckets = repository.getUsageBuckets(0L, 60_000L, 60_000L)
-            assertSame(expectedBuckets, buckets)
-        } finally {
+        suspend fun <R> use(block: suspend (UsageStatsRepository, CoroutineScope, UsageAggregationConfig) -> R): R {
+            return try {
+                block(repository, scope, config)
+            } finally {
+                close()
+            }
+        }
+
+        override fun close() {
+            database.close()
             scope.cancel()
+        }
+
+        private inner class QueueingTrackedEventSource : TrackedEventSource {
+            private val events = ArrayDeque<List<TrackedEvent>>()
+
+            fun enqueue(batch: List<TrackedEvent>) {
+                events.addLast(batch)
+            }
+
+            override suspend fun load(startMillis: Long, endMillis: Long): List<TrackedEvent> {
+                return if (events.isEmpty()) emptyList() else events.removeFirst()
+            }
         }
     }
 
-    private class FakeUsageStatsDataSource(
-        private val defaultSnapshot: UsageStatsUtils.UsageSnapshot = UsageStatsUtils.UsageSnapshot(emptyMap(), 0L),
-        private val defaultForeground: String? = null,
-        private val defaultBuckets: List<UsageStatsUtils.UsageBucket> = emptyList()
-    ) : UsageStatsDataSource {
-
-        private val snapshotResults = ArrayDeque<Result<UsageStatsUtils.UsageSnapshot>>()
-        private val foregroundResults = ArrayDeque<Result<String?>>()
-    private val bucketResults = ArrayDeque<Result<List<UsageStatsUtils.UsageBucket>>>()
-
-        fun enqueueSnapshot(result: Result<UsageStatsUtils.UsageSnapshot>) {
-            snapshotResults.addLast(result)
-        }
-
-        fun enqueueForeground(result: Result<String?>) {
-            foregroundResults.addLast(result)
-        }
-
-        fun enqueueBuckets(result: Result<List<UsageStatsUtils.UsageBucket>>) {
-            bucketResults.addLast(result)
-        }
-
-        override suspend fun getCurrentDaySnapshot(): UsageStatsUtils.UsageSnapshot {
-            val result = if (snapshotResults.isEmpty()) Result.success(defaultSnapshot) else snapshotResults.removeFirst()
-            return result.getOrElse { throw it }
-        }
-
-        override suspend fun getCurrentForegroundApp(): String? {
-            val result = if (foregroundResults.isEmpty()) Result.success(defaultForeground) else foregroundResults.removeFirst()
-            return result.getOrElse { throw it }
-        }
-
-        override suspend fun getUsageBuckets(
-            startMillis: Long,
-            endMillis: Long,
-            bucketSizeMillis: Long
-        ): List<UsageStatsUtils.UsageBucket> {
-            val result = if (bucketResults.isEmpty()) Result.success(defaultBuckets) else bucketResults.removeFirst()
-            return result.getOrElse { throw it }
-        }
+    companion object {
+        private val FIXED_NOW: Instant = Instant.parse("2024-09-27T15:00:00Z")
     }
 }
