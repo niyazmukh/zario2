@@ -8,15 +8,11 @@ object Constants {
 	const val LOG_TAG_INTERVENTION_VIEWMODEL = "InterventionViewModel"
 
 	// Notification channels & identifiers
-	const val NOTIFICATION_CHANNEL_ID_EVALUATION_ALERTS = "zario_evaluation_alerts"
-	const val NOTIFICATION_CHANNEL_ID_SYNC_ALERTS = "zario_sync_alerts"
+	const val NOTIFICATION_CHANNEL_ID_EVALUATION_ALERTS = "minutes_evaluation_alerts"
+	const val NOTIFICATION_CHANNEL_ID_SYNC_ALERTS = "minutes_sync_alerts"
 	const val NOTIFICATION_ID_USAGE_THRESHOLD = 2001
 	const val NOTIFICATION_ID_SYNC_FAILURE = 2002
 	const val NOTIFICATION_ID_EVALUATION_COMPLETE = 2003
-
-	// Evaluation reminder schedule (9:00 PM local time)
-	const val EVALUATION_REMINDER_HOUR = 21
-	const val EVALUATION_REMINDER_MINUTE = 0
 
 	// Time conversions and limits
 	const val MILLISECONDS_PER_SECOND = 1_000L
@@ -53,14 +49,12 @@ object Constants {
 	const val FLEXIBLE_PENALTY = 20
 	const val FLEXIBLE_REWARD_MIN = 0
 	const val FLEXIBLE_REWARD_MAX = 10
-	const val FLEXIBLE_PENALTY_MIN = 0
+	const val FLEXIBLE_PENALTY_MIN = 10  // Note: Min is 10, not 0 (design decision)
 	const val FLEXIBLE_PENALTY_MAX = 40
 	const val MAX_POINTS = 10_000
 
 	// History & presentation
 	const val HISTORY_DATE_FORMAT = "MMM d, yyyy"
-	const val HISTORY_CARD_ELEVATION_SUCCESS = 4f
-	const val HISTORY_CARD_ELEVATION_EXCEEDED = 8f
 
 	// Authentication & profile constraints
 	const val MIN_PASSWORD_LENGTH = 8

@@ -53,8 +53,8 @@ class FlexStakesFragment : Fragment() {
 
     private fun setupSliders() {
         // Update reward slider labels from Constants
-        binding.tvRewardMinLabel.text = Constants.FLEXIBLE_REWARD_MIN.toString()
-        binding.tvRewardMaxLabel.text = Constants.FLEXIBLE_REWARD_MAX.toString()
+        binding.tvRewardMinLabel.text = getString(R.string.slider_numeric_label, Constants.FLEXIBLE_REWARD_MIN)
+        binding.tvRewardMaxLabel.text = getString(R.string.slider_numeric_label, Constants.FLEXIBLE_REWARD_MAX)
         
         // Setup reward slider (LEFT to RIGHT: 0 → 10)
         binding.sliderReward.apply {
@@ -70,8 +70,8 @@ class FlexStakesFragment : Fragment() {
         }
 
         // Update penalty slider labels from Constants
-        binding.tvPenaltyMaxLabel.text = Constants.FLEXIBLE_PENALTY_MAX.toString()
-        binding.tvPenaltyMinLabel.text = Constants.FLEXIBLE_PENALTY_MIN.toString()
+        binding.tvPenaltyMaxLabel.text = getString(R.string.slider_numeric_label, Constants.FLEXIBLE_PENALTY_MAX)
+        binding.tvPenaltyMinLabel.text = getString(R.string.slider_numeric_label, Constants.FLEXIBLE_PENALTY_MIN)
         
         // Setup penalty slider (RIGHT to LEFT: 10 → 40)
         // layoutDirection="rtl" makes slider fill from RIGHT to LEFT

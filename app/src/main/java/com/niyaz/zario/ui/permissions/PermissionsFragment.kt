@@ -17,6 +17,7 @@ import com.niyaz.zario.R
 import com.niyaz.zario.databinding.FragmentPermissionsBinding
 import com.niyaz.zario.permissions.PermissionsManager
 import com.niyaz.zario.utils.BatteryOptimizationUtils
+import com.niyaz.zario.utils.navigateSafely
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
@@ -81,7 +82,7 @@ class PermissionsFragment : Fragment() {
         binding.btnContinue.setOnClickListener {
             Log.d(TAG, "Continue button clicked")
             // Navigate to target selection screen
-            findNavController().navigate(R.id.action_permissions_to_target)
+            findNavController().navigateSafely(R.id.action_permissions_to_target)
         }
     }
 

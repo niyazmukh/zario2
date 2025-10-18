@@ -93,6 +93,9 @@ class EvaluationHistoryAdapter : ListAdapter<EvaluationHistoryEntry, EvaluationH
                 binding.tvStatusBadge.setTextColor(ContextCompat.getColor(context, R.color.evaluation_success))
                 binding.cardStatusBadge.strokeColor = ContextCompat.getColor(context, R.color.evaluation_success)
                 
+                // Accessibility: Set content description for status badge
+                binding.cardStatusBadge.contentDescription = context.getString(R.string.cd_goal_achieved)
+                
                 // Progress bar color
                 binding.progressUsage.setIndicatorColor(ContextCompat.getColor(context, R.color.evaluation_success))
                 binding.tvUsagePercentage.setTextColor(ContextCompat.getColor(context, R.color.evaluation_success))
@@ -103,6 +106,9 @@ class EvaluationHistoryAdapter : ListAdapter<EvaluationHistoryEntry, EvaluationH
                 binding.tvStatusBadge.setTextColor(ContextCompat.getColor(context, R.color.evaluation_exceeded))
                 binding.cardStatusBadge.strokeColor = ContextCompat.getColor(context, R.color.evaluation_exceeded)
                 
+                // Accessibility: Set content description for status badge
+                binding.cardStatusBadge.contentDescription = context.getString(R.string.cd_goal_exceeded)
+                
                 // Progress bar color
                 binding.progressUsage.setIndicatorColor(ContextCompat.getColor(context, R.color.evaluation_exceeded))
                 binding.tvUsagePercentage.setTextColor(ContextCompat.getColor(context, R.color.evaluation_exceeded))
@@ -110,11 +116,11 @@ class EvaluationHistoryAdapter : ListAdapter<EvaluationHistoryEntry, EvaluationH
             
             // Adjust card elevation based on status for subtle visual feedback
             val elevation = if (metGoal) {
-                Constants.HISTORY_CARD_ELEVATION_SUCCESS
+                context.resources.getDimension(R.dimen.card_elevation_history_success)
             } else {
-                Constants.HISTORY_CARD_ELEVATION_EXCEEDED
+                context.resources.getDimension(R.dimen.card_elevation_history_exceeded)
             }
-            binding.root.cardElevation = elevation.toFloat()
+            binding.root.cardElevation = elevation
         }
     }
 

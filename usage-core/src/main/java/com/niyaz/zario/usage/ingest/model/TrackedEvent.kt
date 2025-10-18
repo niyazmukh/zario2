@@ -45,23 +45,13 @@ sealed interface TrackedEvent {
     ) : TrackedEvent {
         override val source: TrackedSource = TrackedSource.USAGE_STATS
     }
-
-    data class Accessibility(
-        override val epochMillis: Long,
-        override val confidence: EventConfidence,
-        val packageName: String,
-        val className: String?
-    ) : TrackedEvent {
-        override val source: TrackedSource = TrackedSource.ACCESSIBILITY
-    }
 }
 
 enum class TrackedSource {
     APP_LIFECYCLE,
     ACTIVITY_LIFECYCLE,
     SCREEN,
-    USAGE_STATS,
-    ACCESSIBILITY
+    USAGE_STATS
 }
 
 enum class EventConfidence { HIGH, MEDIUM, LOW }

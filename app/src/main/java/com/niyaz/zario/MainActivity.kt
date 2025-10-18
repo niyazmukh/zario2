@@ -1,9 +1,6 @@
 package com.niyaz.zario
 
-import android.content.pm.PackageManager
-import android.os.Build
 import android.os.Bundle
-import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavController

@@ -4,7 +4,6 @@ import android.util.Log
 import com.niyaz.zario.di.ApplicationScope
 import com.niyaz.zario.usage.ingest.UsageEventBus
 import com.niyaz.zario.usage.ingest.model.TrackedEvent
-import com.niyaz.zario.usage.ingest.model.TrackedSource
 import com.niyaz.zario.usage.storage.UsageRawEventDao
 import com.niyaz.zario.usage.storage.UsageRawEventEntity
 import javax.inject.Inject
@@ -38,18 +37,15 @@ class UsageEventRecorder @Inject constructor(
             is TrackedEvent.ActivityLifecycle -> state.name
             is TrackedEvent.ScreenState -> state.name
             is TrackedEvent.UsageStats -> type.name
-            is TrackedEvent.Accessibility -> "ACCESSIBILITY_FG"
         }
         val packageName = when (this) {
             is TrackedEvent.AppLifecycle -> foregroundPackage
             is TrackedEvent.ActivityLifecycle -> packageName
             is TrackedEvent.ScreenState -> null
             is TrackedEvent.UsageStats -> packageName
-            is TrackedEvent.Accessibility -> packageName
         }
         val activityClass = when (this) {
             is TrackedEvent.ActivityLifecycle -> activityClass
-            is TrackedEvent.Accessibility -> className
             is TrackedEvent.UsageStats -> backingEvent.taskRootPackageName
             else -> null
         }

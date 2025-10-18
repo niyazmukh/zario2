@@ -5,7 +5,6 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import com.niyaz.zario.data.local.dao.EvaluationHistoryDao
 import com.niyaz.zario.data.local.dao.HourlyUsageDao
-import com.niyaz.zario.data.local.RemoteSyncTypeConverters
 import com.niyaz.zario.data.local.dao.RemoteSyncDao
 import com.niyaz.zario.data.local.entities.AppUsageHourlyEntry
 import com.niyaz.zario.data.local.entities.EvaluationHistoryEntry

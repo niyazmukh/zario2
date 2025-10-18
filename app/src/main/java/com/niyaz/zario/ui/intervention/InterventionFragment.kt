@@ -25,6 +25,7 @@ import com.niyaz.zario.permissions.PermissionsManager
 import com.niyaz.zario.core.evaluation.EvaluationRepository
 import com.niyaz.zario.repository.UserSessionRepository
 import com.niyaz.zario.utils.TimeUtils
+import com.niyaz.zario.utils.navigateSafely
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -87,7 +88,7 @@ class InterventionFragment : Fragment() {
         if (!(state.hasUsageStatsPermission && state.hasNotificationPermission)) {
             // Permissions missing – return user to Permissions screen
             if (isAdded) {
-                findNavController().navigate(R.id.action_intervention_to_permissions)
+                findNavController().navigateSafely(R.id.action_intervention_to_permissions)
             }
         }
     }
@@ -110,15 +111,15 @@ class InterventionFragment : Fragment() {
                         true
                     }
                     R.id.menu_history -> {
-                        findNavController().navigate(R.id.action_intervention_to_history)
+                        findNavController().navigateSafely(R.id.action_intervention_to_history)
                         true
                     }
                     R.id.menu_profile -> {
-                        findNavController().navigate(R.id.action_intervention_to_profile)
+                        findNavController().navigateSafely(R.id.action_intervention_to_profile)
                         true
                     }
                     R.id.menu_about -> {
-                        findNavController().navigate(R.id.action_intervention_to_about)
+                        findNavController().navigateSafely(R.id.action_intervention_to_about)
                         true
                     }
                     else -> false
@@ -172,7 +173,7 @@ class InterventionFragment : Fragment() {
                 .cancelUniqueWork(com.niyaz.zario.worker.UsageMonitoringWorker.WORK_NAME)
 
             sessionRepository.logout()
-            findNavController().navigate(R.id.action_intervention_to_login)
+            findNavController().navigateSafely(R.id.action_intervention_to_login)
         }
     }
 
@@ -207,9 +208,6 @@ class InterventionFragment : Fragment() {
     }
 
     private fun updateUI(state: EvaluationState) {
-    // Update subtitle based on current screen-time plan
-    updateSubtitle(state)
-        
         when (state) {
             is EvaluationState.NotStarted -> {
                 showNotStartedState()
@@ -234,24 +232,13 @@ class InterventionFragment : Fragment() {
             }
         }
     }
-    
-    private fun updateSubtitle(state: EvaluationState) {
-        val planLabel = when (state) {
-            is EvaluationState.Active -> state.progress.plan.label
-            is EvaluationState.Success -> state.finalProgress.plan.label
-            is EvaluationState.GoalExceeded -> state.finalProgress.plan.label
-            else -> evaluationRepository.currentPlan.value?.label
-        } ?: ScreenTimePlan.DEFAULT_LABEL
-
-        binding.tvSubtitle.text = getString(R.string.intervention_subtitle, planLabel)
-    }
 
     private fun showNotStartedState() {
         binding.apply {
             progressIndicator.visibility = View.GONE
             tvCurrentUsage.text = getString(R.string.evaluation_not_started)
-            tvGoalTime.text = ""
-            tvTimeRemaining.text = ""
+            tvGoalTime.text = getString(R.string.empty_placeholder)
+            tvTimeRemaining.text = getString(R.string.empty_placeholder)
             progressText.text = getString(R.string.evaluation_preparing)
         }
     }
@@ -260,8 +247,8 @@ class InterventionFragment : Fragment() {
         binding.apply {
             progressIndicator.visibility = View.GONE
             tvCurrentUsage.text = getString(R.string.evaluation_preparing)
-            tvGoalTime.text = ""
-            tvTimeRemaining.text = ""
+            tvGoalTime.text = getString(R.string.empty_placeholder)
+            tvTimeRemaining.text = getString(R.string.empty_placeholder)
             progressText.text = getString(R.string.evaluation_preparing)
         }
     }
@@ -289,7 +276,7 @@ class InterventionFragment : Fragment() {
                 TimeUtils.formatTimeForDisplay(requireContext(), progress.remainingTimeMs)
             )
 
-            progressText.text = ""
+            progressText.text = getString(R.string.empty_placeholder)
 
             val statusColor = when {
                 progress.usagePercentage <= Constants.USAGE_ON_TRACK_THRESHOLD -> {
@@ -320,8 +307,8 @@ class InterventionFragment : Fragment() {
         binding.apply {
             progressIndicator.visibility = View.GONE
             tvCurrentUsage.text = getString(R.string.evaluation_error)
-            tvGoalTime.text = ""
-            tvTimeRemaining.text = ""
+            tvGoalTime.text = getString(R.string.empty_placeholder)
+            tvTimeRemaining.text = getString(R.string.empty_placeholder)
             progressText.text = if (isRetryable) {
                 getString(R.string.evaluation_error_retryable, message)
             } else {
@@ -334,6 +321,10 @@ class InterventionFragment : Fragment() {
 
     override fun onDestroyView() {
         super.onDestroyView()
+        
+        // Cancel any pending postDelayed callbacks to prevent memory leaks
+        binding.swipeRefreshLayout.handler?.removeCallbacksAndMessages(null)
+        
         _binding = null
     }
 } 

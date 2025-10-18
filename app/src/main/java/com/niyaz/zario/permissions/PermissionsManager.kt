@@ -154,7 +154,7 @@ class PermissionsManager @Inject constructor(
         AlertDialog.Builder(activity)
             .setTitle("Enable Notifications")
             .setMessage(
-                "Zario needs notification permission to alert you when you're approaching " +
+                "Minutes needs notification permission to alert you when you're approaching " +
                 "your screen time goals.\n\n" +
                 "Notifications help you stay on track with your digital wellbeing goals " +
                 "and are essential for the research study."
@@ -204,7 +204,7 @@ class PermissionsManager @Inject constructor(
     }
 
     /**
-     * Shows a comprehensive dialog explaining all permissions needed by Zario.
+     * Shows a comprehensive dialog explaining all permissions needed by Minutes.
      * 
      * Use this during onboarding or when user first sets up a screen time plan.
      * 
@@ -226,7 +226,7 @@ class PermissionsManager @Inject constructor(
             return
         }
         
-        val message = "Zario needs the following permissions to work reliably:\n\n" +
+        val message = "Minutes needs the following permissions to work reliably:\n\n" +
                 permissionsNeeded.joinToString("\n\n") +
                 "\n\nThese permissions ensure you receive timely notifications and accurate tracking for the research study."
         

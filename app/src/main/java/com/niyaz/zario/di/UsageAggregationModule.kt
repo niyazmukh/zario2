@@ -3,7 +3,6 @@ package com.niyaz.zario.di
 import android.app.usage.UsageStatsManager
 import android.content.Context
 import androidx.room.Room
-import com.niyaz.zario.di.ApplicationScope
 import com.niyaz.zario.usage.UsageAggregationConfig
 import com.niyaz.zario.usage.UsageAggregationStore
 import com.niyaz.zario.usage.UsageEventLoader
@@ -36,7 +35,7 @@ object UsageAggregationModule {
         "com.android.permissioncontroller",
         "com.sec.android.app.launcher",
         "com.android.launcher3",
-        "com.niyaz.zario"
+        "com.niyaz.minutes"
     )
 
     private val SUPPRESSED_TASK_ROOT_CLASS_NAMES = setOf(

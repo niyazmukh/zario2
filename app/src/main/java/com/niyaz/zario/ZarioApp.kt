@@ -7,9 +7,7 @@ import androidx.work.Configuration
 import com.niyaz.zario.core.evaluation.EvaluationRepository
 import com.niyaz.zario.worker.MonitoringWorkScheduler
 import com.niyaz.zario.firebase.FirebaseAuthInitializer
-import com.niyaz.zario.usage.accessibility.TrackingAccessibilityService
 import com.niyaz.zario.usage.tracking.UsageTrackingInitializer
-import com.niyaz.zario.usage.tracking.UsageEventRecorder
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -17,7 +15,7 @@ import com.niyaz.zario.di.ApplicationScope
 import kotlinx.coroutines.CoroutineScope
 
 @HiltAndroidApp
-class ZarioApp : Application(), Configuration.Provider, TrackingAccessibilityService.RecorderProvider {
+class ZarioApp : Application(), Configuration.Provider {
 
     @Inject lateinit var workerFactory: HiltWorkerFactory
     @Inject lateinit var evaluationRepository: EvaluationRepository
@@ -25,7 +23,6 @@ class ZarioApp : Application(), Configuration.Provider, TrackingAccessibilitySer
     @Inject lateinit var monitoringWorkScheduler: MonitoringWorkScheduler
     @Inject lateinit var firebaseAuthInitializer: FirebaseAuthInitializer
     @Inject lateinit var usageTrackingInitializer: UsageTrackingInitializer
-    @Inject lateinit var usageEventRecorder: UsageEventRecorder
 
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
@@ -56,6 +53,4 @@ class ZarioApp : Application(), Configuration.Provider, TrackingAccessibilitySer
             }
         }
     }
-
-    override fun provideRecorder(): UsageEventRecorder = usageEventRecorder
 }

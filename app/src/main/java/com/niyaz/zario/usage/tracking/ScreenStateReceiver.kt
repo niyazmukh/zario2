@@ -3,7 +3,6 @@ package com.niyaz.zario.usage.tracking
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.view.Display
 import com.niyaz.zario.usage.ingest.model.EventConfidence
 import com.niyaz.zario.usage.ingest.model.ScreenStateEvent
 import com.niyaz.zario.usage.ingest.model.TrackedEvent

@@ -1,8 +1,11 @@
 <resources>
-    <string name="app_name">zario</string>
+    <string name="app_name">minutes</string>
+    
+    <!-- Splash Screen -->
+    <string name="splash_tagline">Screen Time Management</string>
     
     <!-- Authentication -->
-    <string name="welcome_title">Welcome to Zario</string>
+    <string name="welcome_title">Welcome to Minutes</string>
     <string name="login_title">Sign in</string>
     <string name="signup_title">Create account</string>
     <string name="email_hint">Email</string>
@@ -25,7 +28,7 @@
     <string name="gender_prefer_not_to_say">Prefer not to say</string>
     
     <!-- Permissions Screen -->
-    <string name="permissions_setup_title">Enable Zario</string>
+    <string name="permissions_setup_title">Enable Minutes</string>
     <string name="permissions_setup_subtitle">to reduce screen time for a happier life.</string>
     
     <!-- Notification Permission -->
@@ -38,7 +41,7 @@
     
     <!-- Battery Optimization Permission -->
     <string name="battery_optimization_permission_title">Battery Optimization</string>
-    <string name="battery_optimization_permission_description">Allow Zario to run in the background so notifications arrive even when your device is sleeping</string>
+    <string name="battery_optimization_permission_description">Allow Minutes to run in the background so notifications arrive even when your device is sleeping</string>
     
     <!-- Permission Actions -->
     <string name="grant_permission">Grant</string>
@@ -96,7 +99,7 @@
     <string name="auth_error_generic">Something went wrong. Please try again</string>
     
     <!-- Permission Messages -->
-    <string name="permission_usage_access_guide">Please find and enable Zario in Usage Access settings</string>
+    <string name="permission_usage_access_guide">Please find and enable Minutes in Usage Access settings</string>
     <string name="permission_unable_to_open_settings">Unable to open usage access settings</string>
     
     <!-- Usage Stats Messages -->
@@ -115,6 +118,8 @@
     <string name="cd_app_logo">App logo</string>
     <string name="cd_app_icon">%1$s app icon</string>
     <string name="cd_loading_animation">Loading animation</string>
+    <string name="cd_goal_achieved">Goal achieved</string>
+    <string name="cd_goal_exceeded">Goal exceeded</string>
     <string name="app_usage_card_content_description">%1$s app, %2$s total usage, %3$s daily average. Tap to select as target.</string>
 
     <!-- Time formatting strings -->
@@ -126,7 +131,7 @@
     
     <!-- Intervention Screen -->
     <string name="intervention_title">Monitoring</string>
-    <string name="intervention_subtitle">Daily screen time · %1$s</string>
+    <string name="intervention_subtitle">Daily screen time</string>
     
     <!-- Menu Options -->
     <string name="menu_logout">Sign out</string>
@@ -222,6 +227,10 @@
     <string name="slider_penalty_max">40</string>
     <string name="slider_default_reward_display">5 points</string>
     <string name="slider_default_penalty_display">20 points</string>
+    <string name="slider_numeric_label">%1$d</string>
+    
+    <!-- Intervention Screen - Empty state placeholders -->
+    <string name="empty_placeholder" translatable="false"></string>
     
     <!-- Intervention Error Messages -->
     <string name="error_no_plan_configured">No daily goal configured. Please set up your screen time goal first.</string>
@@ -278,17 +287,24 @@
     <string name="history_chart_bar_content_description_empty">Hour %1$d: no screen time</string>
     <string name="history_total_usage_label">Total screen time: %1$s</string>
     <string name="history_usage_other_label">Other apps (&lt;1 min each)</string>
-    <string name="history_usage_other_content_description">Other apps total usage %1$s</string>
-    
+        <string name="history_usage_other_content_description">Other apps total usage %1$s</string>
+
     <!-- About Screen -->
-    <string name="about_title">About Zario</string>
+    <string name="about_title">About Minutes</string>
     <string name="about_subtitle">Helping you build healthier screen habits</string>
-    <string name="about_research_purpose">Zario is part of an ongoing research project exploring effective strategies to decrease daily screen time.</string>
+    
+    <!-- About Screen Section Headers (Phase 3) -->
+    <string name="about_section_research">Research Purpose</string>
+    <string name="about_section_how_it_works">How It Works</string>
+    <string name="about_section_privacy">Your Privacy</string>
+    
+    <!-- About Screen Content -->
+    <string name="about_research_purpose">Minutes is part of an ongoing research project exploring effective strategies to decrease daily screen time.</string>
     <string name="about_reduction_goal">The app guides you toward reducing your screen time through personalized goals and daily insights.</string>
     <string name="about_evaluation_process">Each evaluation cycle compares your usage to your goal: meet it to earn points, exceed it and you may lose some.</string>
-    <string name="about_privacy_statement">We don’t collect, store, or exploit any personal information—your data stays on your device.</string>
+    <string name="about_privacy_statement">We don\'t collect, store, or exploit any personal information.</string>
     <string name="about_contact_button">Email the research team</string>
-    <string name="about_contact_chooser_title">Contact Zario team</string>
+    <string name="about_contact_chooser_title">Contact Minutes team</string>
     <string name="about_contact_error">No email app found on this device.</string>
     <string name="time_range_format">%1$s — %2$s</string>
     
@@ -330,5 +346,4 @@
     <string name="feedback_goal_streak">Goal streak: %1$d</string>
     <string name="feedback_goal_streak_none">Goal streak: 0</string>
     <string name="feedback_continue_button">Continue</string>
-    <string name="accessibility_tracking_description">Optional fallback service for Zario screen-time monitoring.</string>
 </resources>

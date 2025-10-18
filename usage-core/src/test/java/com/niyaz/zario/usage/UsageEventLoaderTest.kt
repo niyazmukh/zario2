@@ -6,7 +6,6 @@ import android.app.usage.UsageStatsManager
 import android.os.Build
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.slot
 import io.mockk.verify
 import java.lang.reflect.Field
 import org.junit.Assert.assertEquals

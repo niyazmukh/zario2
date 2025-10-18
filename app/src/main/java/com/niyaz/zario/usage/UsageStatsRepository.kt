@@ -22,7 +22,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -61,7 +60,6 @@ class UsageStatsRepository @Inject constructor(
                     is TrackedEvent.ActivityLifecycle -> if (event.state == ActivityLifecycleState.RESUMED) {
                         _foregroundPackage.value = event.packageName
                     }
-                    is TrackedEvent.Accessibility -> _foregroundPackage.value = event.packageName
                     else -> Unit
                 }
             }

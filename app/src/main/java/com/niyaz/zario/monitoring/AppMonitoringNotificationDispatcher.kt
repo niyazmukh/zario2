@@ -2,7 +2,6 @@ package com.niyaz.zario.monitoring
 
 import android.content.Context
 import com.niyaz.zario.data.ScreenTimePlan
-import com.niyaz.zario.monitoring.MonitoringNotificationDispatcher
 import com.niyaz.zario.utils.NotificationUtils
 import javax.inject.Inject
 import javax.inject.Singleton

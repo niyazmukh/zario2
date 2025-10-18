@@ -21,7 +21,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.*
 import kotlinx.coroutines.sync.Mutex
@@ -59,7 +58,7 @@ class UserSessionRepositoryFlexStakesTest {
     @Before
     fun setup() {
         Dispatchers.setMain(testDispatcher)
-        mockkStatic("com.niyaz.zario.data.DataStoreExtensionsKt")
+        mockkStatic("com.niyaz.minutes.data.DataStoreExtensionsKt")
         mockContext = mockk(relaxed = true)
         dataStore = InMemoryPreferenceDataStore()
         runBlocking { dataStore.edit { it.clear() } }
@@ -80,7 +79,7 @@ class UserSessionRepositoryFlexStakesTest {
         applicationScope.cancel()
         testScope.cancel()
         Dispatchers.resetMain()
-        unmockkStatic("com.niyaz.zario.data.DataStoreExtensionsKt")
+        unmockkStatic("com.niyaz.minutes.data.DataStoreExtensionsKt")
     }
 
     @Test

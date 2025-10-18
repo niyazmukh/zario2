@@ -6,7 +6,6 @@ import androidx.test.core.app.ApplicationProvider
 import com.niyaz.zario.core.usage.UsageStatsRepository
 import com.niyaz.zario.usage.UsageAggregationConfig
 import com.niyaz.zario.usage.UsageAggregationStore
-import com.niyaz.zario.usage.UsageBucket
 import com.niyaz.zario.usage.UsageTimelineReconciler
 import com.niyaz.zario.usage.ingest.TrackedEventSource
 import com.niyaz.zario.usage.ingest.UsageEventBus

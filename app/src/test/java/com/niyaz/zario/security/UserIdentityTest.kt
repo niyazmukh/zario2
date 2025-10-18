@@ -1,2 +1,2 @@
-package com.niyaz.zario.security 
+package com.niyaz.zario.security
 

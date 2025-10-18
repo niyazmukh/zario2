@@ -1,9 +1,12 @@
 package com.niyaz.zario.ui.feedback
 
+import android.animation.AnimatorSet
+import android.animation.ObjectAnimator
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.animation.OvershootInterpolator
 import androidx.activity.OnBackPressedCallback
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
@@ -106,6 +109,9 @@ class FeedbackFragment : Fragment() {
                 requireContext().getColor(R.color.evaluation_exceeded)
             }
             tvGoalStatus.setTextColor(statusColor)
+            
+            // Animate goal status with celebration effect
+            animateGoalStatus(tvGoalStatus, feedbackData.goalMet)
 
             // Points Change
             tvPointsChange.text = if (feedbackData.pointsChange >= 0) {
@@ -121,6 +127,9 @@ class FeedbackFragment : Fragment() {
                 requireContext().getColor(R.color.evaluation_exceeded)
             }
             tvPointsChange.setTextColor(pointsColor)
+            
+            // Animate points change
+            animatePointsChange(tvPointsChange, feedbackData.pointsChange >= 0)
 
             // Goal Streak
             tvGoalStreak.text = if (feedbackData.goalStreak > 0) {
@@ -128,6 +137,83 @@ class FeedbackFragment : Fragment() {
             } else {
                 getString(R.string.feedback_goal_streak_none)
             }
+            
+            // Animate streak if positive
+            if (feedbackData.goalStreak > 0) {
+                animateStreak(tvGoalStreak)
+            }
+        }
+    }
+    
+    /**
+     * Animates the goal status text with a celebration bounce effect.
+     * Uses OvershootInterpolator for a delightful overshoot animation.
+     */
+    private fun animateGoalStatus(view: View, isSuccess: Boolean) {
+        // Reset scale to 0 for animation
+        view.scaleX = 0f
+        view.scaleY = 0f
+        view.alpha = 0f
+        
+        // Create scale animations
+        val scaleX = ObjectAnimator.ofFloat(view, "scaleX", 0f, 1f)
+        val scaleY = ObjectAnimator.ofFloat(view, "scaleY", 0f, 1f)
+        val alpha = ObjectAnimator.ofFloat(view, "alpha", 0f, 1f)
+        
+        // Use stronger overshoot for success (celebratory), subtle for miss
+        val overshootTension = if (isSuccess) 2.0f else 1.0f
+        val interpolator = OvershootInterpolator(overshootTension)
+        
+        AnimatorSet().apply {
+            playTogether(scaleX, scaleY, alpha)
+            duration = 600
+            this.interpolator = interpolator
+            startDelay = 100
+            start()
+        }
+    }
+    
+    /**
+     * Animates the points change text with a subtle bounce.
+     */
+    private fun animatePointsChange(view: View, isPositive: Boolean) {
+        view.scaleX = 0f
+        view.scaleY = 0f
+        view.alpha = 0f
+        
+        val scaleX = ObjectAnimator.ofFloat(view, "scaleX", 0f, 1f)
+        val scaleY = ObjectAnimator.ofFloat(view, "scaleY", 0f, 1f)
+        val alpha = ObjectAnimator.ofFloat(view, "alpha", 0f, 1f)
+        
+        val overshootTension = if (isPositive) 1.5f else 0.5f
+        
+        AnimatorSet().apply {
+            playTogether(scaleX, scaleY, alpha)
+            duration = 500
+            interpolator = OvershootInterpolator(overshootTension)
+            startDelay = 300
+            start()
+        }
+    }
+    
+    /**
+     * Animates the streak text with a gentle bounce.
+     */
+    private fun animateStreak(view: View) {
+        view.scaleX = 0f
+        view.scaleY = 0f
+        view.alpha = 0f
+        
+        val scaleX = ObjectAnimator.ofFloat(view, "scaleX", 0f, 1f)
+        val scaleY = ObjectAnimator.ofFloat(view, "scaleY", 0f, 1f)
+        val alpha = ObjectAnimator.ofFloat(view, "alpha", 0f, 1f)
+        
+        AnimatorSet().apply {
+            playTogether(scaleX, scaleY, alpha)
+            duration = 450
+            interpolator = OvershootInterpolator(1.2f)
+            startDelay = 500
+            start()
         }
     }
 

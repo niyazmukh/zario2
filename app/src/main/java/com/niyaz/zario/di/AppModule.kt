@@ -38,7 +38,7 @@ object AppModule {
         return Room.databaseBuilder(
             context,
             AppDatabase::class.java,
-            "zario_db"
+            "minutes_db"
         )
             .setJournalMode(RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)
             .addMigrations(*RoomMigrations.ALL)

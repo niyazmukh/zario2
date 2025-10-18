@@ -29,7 +29,6 @@ class UsageTimelineReconciler(
             when (event) {
                 is TrackedEvent.ActivityLifecycle -> handleActivityEvent(event, openSessions, sessions)
                 is TrackedEvent.UsageStats -> handleUsageStats(event, openSessions, sessions)
-                is TrackedEvent.Accessibility -> handleAccessibility(event, openSessions)
                 is TrackedEvent.ScreenState -> handleScreen(event, openSessions, sessions)
                 is TrackedEvent.AppLifecycle -> handleAppLifecycle(event, openSessions, sessions)
             }
@@ -87,18 +86,6 @@ class UsageTimelineReconciler(
                 confidence = event.confidence
             )?.let(sessions::add)
         }
-    }
-
-    private fun handleAccessibility(
-        event: TrackedEvent.Accessibility,
-        open: MutableMap<String, SessionAccumulator>
-    ) {
-        open.ensureForeground(
-            packageName = event.packageName,
-            timestamp = event.epochMillis,
-            confidence = event.confidence,
-            taskRoot = event.className
-        )
     }
 
     private fun handleScreen(

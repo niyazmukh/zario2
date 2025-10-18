@@ -143,21 +143,6 @@
 
         </LinearLayout>
 
-        <!-- Total Points
-        <TextView
-            android:id="@+id/tv_total_points"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/spacing_md"
-            android:layout_marginBottom="@dimen/spacing_lg"
-            android:gravity="center_horizontal"
-            android:textAppearance="?attr/textAppearanceBodyMedium"
-            android:textColor="?attr/colorOnSurfaceVariant"
-            android:text="@string/total_points_format"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/stats_card" /> -->
-
     </androidx.constraintlayout.widget.ConstraintLayout>
 
 </androidx.swiperefreshlayout.widget.SwipeRefreshLayout> 

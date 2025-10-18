@@ -2,7 +2,6 @@ package com.niyaz.zario.usage
 
 import com.niyaz.zario.usage.ingest.TrackedEventSource
 import com.niyaz.zario.usage.storage.UsageRawEventDao
-import com.niyaz.zario.usage.storage.UsageRawEventEntity
 import com.niyaz.zario.usage.storage.UsageSessionDao
 import com.niyaz.zario.usage.storage.UsageSessionEntity
 import java.time.Duration

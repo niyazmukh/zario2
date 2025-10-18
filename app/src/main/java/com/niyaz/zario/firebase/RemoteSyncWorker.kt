@@ -3,7 +3,6 @@ package com.niyaz.zario.firebase
 import android.content.Context
 import android.util.Log
 import androidx.hilt.work.HiltWorker
-import androidx.work.BackoffPolicy
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.google.firebase.auth.FirebaseAuth

@@ -1,7 +1,6 @@
 package com.niyaz.zario.usage.tracking
 
 import com.niyaz.zario.usage.UsageEvent
-import com.niyaz.zario.usage.UsageEventType
 import com.niyaz.zario.usage.ingest.TrackedEventSource
 import com.niyaz.zario.usage.ingest.model.EventConfidence
 import com.niyaz.zario.usage.ingest.model.ScreenStateEvent
@@ -59,12 +58,6 @@ class CompositeTrackedEventSource @Inject constructor(
                     .getOrDefault(ScreenStateEvent.SCREEN_OFF)
             )
             TrackedSource.USAGE_STATS -> null
-            TrackedSource.ACCESSIBILITY -> TrackedEvent.Accessibility(
-                epochMillis = entity.timestampMs,
-                confidence = confidence,
-                packageName = entity.packageName ?: return null,
-                className = entity.activityClass
-            )
         }
     }
 }

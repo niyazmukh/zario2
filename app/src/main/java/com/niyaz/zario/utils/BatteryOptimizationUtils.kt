@@ -14,7 +14,7 @@ import androidx.annotation.RequiresApi
  * Utility class for managing battery optimization exemptions and doze mode whitelisting.
  * 
  * Battery optimization restrictions can prevent WorkManager from executing reliably in the
- * background, which is critical for timely screen time notifications in Zario.
+ * background, which is critical for timely screen time notifications in Minutes.
  * 
  * This class provides methods to:
  * 1. Check if the app is whitelisted from battery optimizations

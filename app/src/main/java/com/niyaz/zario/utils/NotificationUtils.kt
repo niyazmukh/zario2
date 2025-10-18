@@ -20,7 +20,7 @@ import com.niyaz.zario.data.ScreenTimePlan
 object NotificationUtils {
 
     private const val TAG = "NotificationUtils"
-    private const val WAKELOCK_TAG = "Zario::NotificationWakeLock"
+    private const val WAKELOCK_TAG = "Minutes::NotificationWakeLock"
     private const val WAKELOCK_TIMEOUT_MS = 10_000L // 10 seconds
 
     /**

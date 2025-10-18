@@ -1,7 +1,5 @@
 package com.niyaz.zario.usage
 
-import com.niyaz.zario.usage.UsageEvent
-import com.niyaz.zario.usage.UsageEventType
 import com.niyaz.zario.usage.ingest.model.ActivityLifecycleState
 import com.niyaz.zario.usage.ingest.model.EventConfidence
 import com.niyaz.zario.usage.ingest.model.ScreenStateEvent
