@@ -131,7 +131,7 @@
     
     <!-- Intervention Screen -->
     <string name="intervention_title">Monitoring</string>
-    <string name="intervention_subtitle">Daily screen time · %1$s</string>
+    <string name="intervention_subtitle">Daily screen time</string>
     
     <!-- Menu Options -->
     <string name="menu_logout">Sign out</string>

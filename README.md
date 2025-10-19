@@ -85,7 +85,7 @@ Every persistent record now carries a stable hashed `userId`, making local data 
      ```bash
      ./gradlew assembleDebug
      ```
-   - (Optional) Enable the accessibility fallback: open *Settings → Accessibility → Installed services* and activate **Minutes Screen Monitor** if your OEM throttles UsageStats events.
+      - Note: This app does not use an accessibility-service fallback. It relies on Android UsageStats, activity lifecycle callbacks and screen-state signals for foreground attribution.
 
 5. **(Optional) Generate release-ready artefacts**
    - Use `./gradlew bundleRelease` or `assembleRelease` once your signing and distribution setup is configured.

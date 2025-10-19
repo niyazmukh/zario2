@@ -5,15 +5,13 @@ import com.niyaz.zario.usage.ingest.model.EventConfidence
 import com.niyaz.zario.usage.ingest.model.ScreenStateEvent
 import com.niyaz.zario.usage.ingest.model.TrackedEvent
 import org.junit.Assert.assertEquals
-import org.junit.Test
 
 class UsageTimelineReconcilerTest {
 
     private val config = UsageAggregationConfig()
     private val reconciler = UsageTimelineReconciler(config)
 
-    @Test
-    @Test
+    @org.junit.Test
     fun `sessions extend with continuity gap after explicit STOPPED event`() {
         val start = 0L
         val events = listOf(
@@ -42,7 +40,7 @@ class UsageTimelineReconcilerTest {
         assertEquals(35_000, session.endMs)
     }
 
-    @Test
+    @org.junit.Test
     fun `sessions extend with continuity gap after MOVE_TO_BACKGROUND`() {
         val start = 0L
         val events = listOf(
@@ -71,7 +69,7 @@ class UsageTimelineReconcilerTest {
         assertEquals(38_000, session.endMs)
     }
 
-    @Test
+    @org.junit.Test
     fun `sessions extend with continuity gap after screen off event`() {
         val start = 0L
         val events = listOf(
@@ -98,7 +96,7 @@ class UsageTimelineReconcilerTest {
         assertEquals(40_000, session.endMs)
     }
 
-    @Test
+    @org.junit.Test
     fun `open sessions extend through window end`() {
         val start = 0L
         val windowEnd = 100_000L
@@ -129,7 +127,7 @@ class UsageTimelineReconcilerTest {
         assertEquals(windowEnd, session.endMs)
     }
 
-    @Test
+    @org.junit.Test
     fun `reconcile merges overlapping events by confidence`() {
         val start = 1_000L
         val end = 10_000L
@@ -173,7 +171,7 @@ class UsageTimelineReconcilerTest {
         assertEquals(start + 33_000, session.endMs)
     }
 
-    @Test
+    @org.junit.Test
     fun `screen off closes all open sessions`() {
         val start = 0L
         val events = listOf(
@@ -196,7 +194,7 @@ class UsageTimelineReconcilerTest {
         assertEquals(5_000, sessions.first().endMs)
     }
 
-    @Test
+    @org.junit.Test
     fun `higher confidence resume retains original foreground start`() {
         val start = 0L
         val events = listOf(
@@ -231,7 +229,7 @@ class UsageTimelineReconcilerTest {
         assertEquals(6_500, session.endMs)
     }
 
-    @Test
+    @org.junit.Test
     fun `intra task swaps stay within single session`() {
         val start = 0L
         val events = listOf(
@@ -280,7 +278,7 @@ class UsageTimelineReconcilerTest {
         assertEquals(5_000, session.endMs)
     }
 
-    @Test
+    @org.junit.Test
     fun `usage stats duplicate foreground events do not fragment session`() {
         val start = 0L
         val events = listOf(
