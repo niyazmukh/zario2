@@ -177,7 +177,7 @@ class PlanPreferencesDataSource @Inject constructor(
         val goal = this[Keys.GOAL_TIME_MS]
         val plan = if (goal != null) {
             val avg = this[Keys.DAILY_AVERAGE_MS] ?: 0L
-            val label = this[Keys.PLAN_LABEL] ?: ScreenTimePlan.DEFAULT_LABEL
+            val label = this[Keys.PLAN_LABEL] ?: ""
             val createdAt = this[Keys.PLAN_CREATED_AT] ?: System.currentTimeMillis()
             val start = this[Keys.EVALUATION_START_TIME]
             ScreenTimePlan(

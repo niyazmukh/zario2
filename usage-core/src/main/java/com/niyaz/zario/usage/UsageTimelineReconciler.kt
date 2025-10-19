@@ -32,7 +32,7 @@ class UsageTimelineReconciler(
                 is TrackedEvent.AppLifecycle -> {
                     // AppLifecycle events are deprecated/removed from the pipeline. No-op to satisfy
                     // Kotlin's exhaustiveness check; previously these attempted to close sessions but
-                    // foreground attribution was unreliable without accessibility privileges.
+                    // the implementation no longer relies on accessibility services for foreground attribution.
                 }
             }
         }
@@ -59,6 +59,11 @@ class UsageTimelineReconciler(
                 confidence = event.confidence,
                 taskRoot = event.activityClass
             )
+            // Close any other packages that may still be open to avoid overlapping sessions
+            .also { _ ->
+                // finish other open sessions at the same timestamp
+                sessions += open.finishAllExcept(event.packageName, event.epochMillis, event.confidence)
+            }
             ActivityLifecycleState.PAUSED -> open.touch(event.packageName, event.epochMillis, event.confidence)
             ActivityLifecycleState.STOPPED,
             ActivityLifecycleState.DESTROYED -> open.finishIfAllowed(
@@ -81,6 +86,10 @@ class UsageTimelineReconciler(
                 confidence = event.confidence,
                 taskRoot = event.backingEvent.taskRootPackageName
             )
+            // Close other packages when a new foreground open is detected
+            .also { _ ->
+                sessions += open.finishAllExcept(event.packageName, event.epochMillis, event.confidence)
+            }
             event.type.closesAllSessions -> sessions += open.finishAll(
                 timestamp = event.epochMillis,
                 confidence = event.confidence
@@ -165,6 +174,27 @@ class UsageTimelineReconciler(
     ) {
         val accumulator = this[packageName] ?: return
         this[packageName] = accumulator.withTouch(timestamp, confidence)
+    }
+
+    private fun MutableMap<String, SessionAccumulator>.finishAllExcept(
+        packageToKeep: String,
+        timestamp: Long,
+        confidence: EventConfidence
+    ): List<UsageSession> {
+        val finished = mutableListOf<UsageSession>()
+        val iterator = iterator()
+        while (iterator.hasNext()) {
+            val entry = iterator.next()
+            if (entry.key == packageToKeep) continue
+            val accumulator = entry.value
+            if (confidence.ordinal > accumulator.confidence.ordinal) {
+                entry.setValue(accumulator.withTouch(timestamp, confidence))
+                continue
+            }
+            finished += accumulator.withCloseBoundary(timestamp).finish(timestamp, taskContinuityGapMs)
+            iterator.remove()
+        }
+        return finished
     }
 
     private fun mergeSessions(sessions: List<UsageSession>): List<UsageSession> {

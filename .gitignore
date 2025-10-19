@@ -56,7 +56,6 @@ firestore.rules
 # Assistant metadata / docs not meant for VCS
 .github/instructions/gpt5*.md
 .github/instructions/opus41.instructions.md
-docs/ux-style-guide.md
 log.md
 
 # Logs
@@ -74,9 +73,42 @@ proguard-*.pro
 
 # Documentation and scripts folders
 docs/
+.docs/
+.scripts/
 scripts/
 
 # MD reports and summaries
 *report*.md
 *summary*.md
 
+# Local developer files and runtime artifacts - keep these out of VCS
+# Node/npm artifacts (used by firestore-tools or other subfolders)
+**/node_modules/
+
+# Environment files which may contain secrets
+.env
+.env.*
+
+# Local SQLite/DB files and journals created during development or emulation
+*.db
+*.sqlite
+*.sqlite3
+*-journal
+*-wal
+*-shm
+
+# Editor/IDE swap and backup files
+*~
+*.swp
+*.swo
+*.bak
+
+# Coverage and test output
+coverage/
+.nyc_output/
+
+# Misc logs
+*.log
+
+
+zariodecomp/

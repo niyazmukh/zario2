@@ -3,13 +3,12 @@ package com.niyaz.zario.data
 data class ScreenTimePlan(
     val goalTimeMs: Long,
     val dailyAverageMs: Long,
-    val label: String = DEFAULT_LABEL,
+    val label: String = "",
     val planCreatedAt: Long = System.currentTimeMillis(),
     val evaluationStartTime: Long? = null
 ) {
-    companion object {
-        const val DEFAULT_LABEL = "Daily screen time"
-    }
+    // Note: label default is intentionally empty. UI is responsible for presenting localized
+    // human-visible text when required.
 }
 
 data class EvaluationProgress(

@@ -9,7 +9,7 @@ fun DocumentSnapshot.toEvaluationHistoryEntry(userId: String, userEmail: String)
     return EvaluationHistoryEntry(
         userId = userId,
         userEmail = userEmail,
-        planLabel = getString("planLabel") ?: ScreenTimePlan.DEFAULT_LABEL,
+    planLabel = getString("planLabel") ?: "",
         goalTimeMs = getLong("goalTimeMs") ?: 0L,
         dailyAverageMs = getLong("dailyAverageMs") ?: 0L,
         finalUsageMs = getLong("finalUsageMs") ?: 0L,
@@ -37,7 +37,7 @@ fun DocumentSnapshot.toAppUsageHourlyEntry(userId: String, userEmail: String, pl
 fun Map<String, Any?>.toScreenTimePlan(): ScreenTimePlan? {
     val goalTimeMs = (this["goalTimeMs"] as? Number)?.toLong() ?: return null
     val dailyAverageMs = (this["dailyAverageMs"] as? Number)?.toLong() ?: 0L
-    val label = (this["label"] as? String) ?: ScreenTimePlan.DEFAULT_LABEL
+    val label = (this["label"] as? String) ?: ""
     val planCreatedAt = (this["planCreatedAt"] as? Number)?.toLong() ?: System.currentTimeMillis()
     val evaluationStartTime = (this["evaluationStartTime"] as? Number)?.toLong()
     return ScreenTimePlan(goalTimeMs, dailyAverageMs, label, planCreatedAt, evaluationStartTime)
