@@ -13,26 +13,32 @@ import com.niyaz.zario.data.Condition
 import com.niyaz.zario.data.User
 import com.niyaz.zario.data.UserSession
 import com.niyaz.zario.data.userSessionDataStore
+import com.niyaz.zario.data.local.dao.RemoteSyncDao
 import com.niyaz.zario.di.ApplicationScope
 import com.niyaz.zario.firebase.FirestoreUserGateway
+import com.niyaz.zario.firebase.RemoteSyncScheduler
 import com.niyaz.zario.firebase.FirestoreFields
 import com.niyaz.zario.security.UserIdentity
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Singleton
 class UserSessionRepository @Inject constructor(
     @ApplicationContext context: Context,
     @ApplicationScope private val applicationScope: CoroutineScope,
-    private val userGateway: FirestoreUserGateway
+    private val userGateway: FirestoreUserGateway,
+    private val remoteSyncDao: RemoteSyncDao,
+    private val remoteSyncScheduler: RemoteSyncScheduler
 ) {
 
     private val dataStore: DataStore<Preferences> = context.userSessionDataStore
@@ -152,9 +158,15 @@ class UserSessionRepository @Inject constructor(
 
     suspend fun logout() {
         dataStore.edit { prefs ->
+            prefs.clear()
             prefs[PrefKeys.LOGGED_IN] = false
-            prefs.remove(PrefKeys.YEAR_OF_BIRTH)
-            prefs.remove(PrefKeys.GENDER)
+        }
+        remoteSyncScheduler.cancel()
+        withContext(Dispatchers.IO) {
+            runCatching { remoteSyncDao.clearAll() }
+                .onFailure { error ->
+                    Log.w(TAG, "Failed to clear remote sync backlog on logout", error)
+                }
         }
         _session.value = UserSession()
     }

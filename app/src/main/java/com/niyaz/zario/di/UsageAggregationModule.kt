@@ -2,6 +2,7 @@ package com.niyaz.zario.di
 
 import android.app.usage.UsageStatsManager
 import android.content.Context
+import com.niyaz.zario.BuildConfig
 import androidx.room.Room
 import com.niyaz.zario.usage.UsageAggregationConfig
 import com.niyaz.zario.usage.UsageAggregationStore
@@ -35,7 +36,7 @@ object UsageAggregationModule {
         "com.android.permissioncontroller",
         "com.sec.android.app.launcher",
         "com.android.launcher3",
-        "com.niyaz.minutes"
+        "com.niyaz.zario"
     )
 
     private val SUPPRESSED_TASK_ROOT_CLASS_NAMES = setOf(
@@ -103,7 +104,14 @@ object UsageAggregationModule {
     @Singleton
     fun provideUsageIngestionTelemetry(
         logger: UsageIngestionTelemetryLogger
-    ): UsageIngestionTelemetry = logger
+    ): UsageIngestionTelemetry =
+        if (BuildConfig.DEBUG) {
+            // In debug builds use the verbose logger
+            logger
+        } else {
+            // In release builds, return NO_OP to avoid diagnostic overhead
+            UsageIngestionTelemetry.NO_OP
+        }
 
     @Provides
     @Singleton
@@ -117,8 +125,9 @@ object UsageAggregationModule {
     @Singleton
     fun provideTrackedEventSource(
         usageEventSource: UsageEventSource,
-        rawEventDao: UsageRawEventDao
-    ): TrackedEventSource = CompositeTrackedEventSource(usageEventSource, rawEventDao)
+        rawEventDao: UsageRawEventDao,
+        config: UsageAggregationConfig
+    ): TrackedEventSource = CompositeTrackedEventSource(usageEventSource, rawEventDao, config)
 
     @Provides
     @Singleton

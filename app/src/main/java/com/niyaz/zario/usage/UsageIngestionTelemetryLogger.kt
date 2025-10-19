@@ -1,6 +1,7 @@
 package com.niyaz.zario.usage
 
 import android.util.Log
+import com.niyaz.zario.BuildConfig
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -13,6 +14,7 @@ class UsageIngestionTelemetryLogger @Inject constructor() : UsageIngestionTeleme
     private val dateFormat = SimpleDateFormat("HH:mm:ss.SSS", Locale.US)
 
     override fun onIngestionResult(result: UsageIngestionTelemetry.Result) {
+        if (!shouldLogVerbose()) return
         logSummary(result)
         logPerPackageStats(result)
         logHighValueDrops(result)
@@ -136,6 +138,9 @@ class UsageIngestionTelemetryLogger @Inject constructor() : UsageIngestionTeleme
     private fun formatTime(timestampMs: Long): String {
         return dateFormat.format(Date(timestampMs))
     }
+
+    private fun shouldLogVerbose(): Boolean =
+        BuildConfig.DEBUG || Log.isLoggable(TAG, Log.INFO)
 
     private companion object {
         const val TAG = "UsageIngestionTelemetry"

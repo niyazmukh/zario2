@@ -9,11 +9,15 @@ import com.niyaz.zario.Constants
 import com.niyaz.zario.data.Condition
 import com.niyaz.zario.data.User
 import com.niyaz.zario.data.userSessionDataStore
+import com.niyaz.zario.data.local.dao.RemoteSyncDao
 import com.niyaz.zario.firebase.FirestoreUserGateway
+import com.niyaz.zario.firebase.RemoteSyncScheduler
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkStatic
 import io.mockk.unmockkStatic
+import io.mockk.coVerify
+import io.mockk.verify
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -54,18 +58,28 @@ class UserSessionRepositoryFlexStakesTest {
     private lateinit var userGateway: FirestoreUserGateway
     private lateinit var dataStore: DataStore<Preferences>
     private lateinit var applicationScope: CoroutineScope
+    private lateinit var remoteSyncDao: RemoteSyncDao
+    private lateinit var remoteSyncScheduler: RemoteSyncScheduler
 
     @Before
     fun setup() {
         Dispatchers.setMain(testDispatcher)
-        mockkStatic("com.niyaz.minutes.data.DataStoreExtensionsKt")
+        mockkStatic("com.niyaz.zario.data.DataStoreExtensionsKt")
         mockContext = mockk(relaxed = true)
         dataStore = InMemoryPreferenceDataStore()
         runBlocking { dataStore.edit { it.clear() } }
         every { mockContext.userSessionDataStore } returns dataStore
         userGateway = mockk(relaxed = true)
-    applicationScope = CoroutineScope(testDispatcher + SupervisorJob())
-    repository = UserSessionRepository(mockContext, applicationScope, userGateway)
+        remoteSyncDao = mockk(relaxed = true)
+        remoteSyncScheduler = mockk(relaxed = true)
+        applicationScope = CoroutineScope(testDispatcher + SupervisorJob())
+        repository = UserSessionRepository(
+            context = mockContext,
+            applicationScope = applicationScope,
+            userGateway = userGateway,
+            remoteSyncDao = remoteSyncDao,
+            remoteSyncScheduler = remoteSyncScheduler
+        )
     }
 
     @After
@@ -79,7 +93,33 @@ class UserSessionRepositoryFlexStakesTest {
         applicationScope.cancel()
         testScope.cancel()
         Dispatchers.resetMain()
-        unmockkStatic("com.niyaz.minutes.data.DataStoreExtensionsKt")
+        unmockkStatic("com.niyaz.zario.data.DataStoreExtensionsKt")
+    }
+
+    @Test
+    fun `logout clears stored session and remote sync backlog`() = testScope.runTest {
+        val user = User(
+            email = "test@example.com",
+            id = "user-123",
+            yearOfBirth = "1990",
+            gender = "Other",
+            condition = Condition.CONTROL,
+            points = 150,
+            hasSetFlexibleStakes = true,
+            flexibleReward = 10,
+            flexiblePenalty = 10
+        )
+
+        repository.setLoggedIn(user)
+
+        repository.logout()
+
+        val snapshot = repository.awaitSession()
+        assertFalse(snapshot.isLoggedIn)
+        assertNull(snapshot.user)
+
+        verify(exactly = 1) { remoteSyncScheduler.cancel() }
+        coVerify(exactly = 1) { remoteSyncDao.clearAll() }
     }
 
     @Test

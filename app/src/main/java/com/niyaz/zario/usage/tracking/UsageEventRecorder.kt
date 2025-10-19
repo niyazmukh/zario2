@@ -9,7 +9,11 @@ import com.niyaz.zario.usage.storage.UsageRawEventEntity
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 @Singleton
 class UsageEventRecorder @Inject constructor(
@@ -20,14 +24,64 @@ class UsageEventRecorder @Inject constructor(
 
     fun publish(event: TrackedEvent) {
         bus.publish(event)
-        scope.launch { persist(event) }
+        scope.launch { enqueue(event) }
     }
 
-    private suspend fun persist(event: TrackedEvent) {
-        runCatching {
-            rawEventDao.insertAll(listOf(event.toEntity()))
-        }.onFailure { error ->
-            Log.w(TAG, "Failed to persist tracked event", error)
+    private val bufferLock = Mutex()
+    private val pendingEntities = mutableListOf<UsageRawEventEntity>()
+    private var pendingFlushJob: Job? = null
+
+    private suspend fun enqueue(event: TrackedEvent) {
+        val entity = event.toEntity()
+        var flushImmediately = false
+
+        bufferLock.withLock {
+            pendingEntities += entity
+            if (pendingEntities.size >= MAX_BUFFER_SIZE) {
+                flushImmediately = true
+                pendingFlushJob?.cancel()
+                pendingFlushJob = null
+            } else if (pendingFlushJob == null) {
+                pendingFlushJob = scope.launch {
+                    delay(FLUSH_WINDOW_MS)
+                    flushBuffer()
+                }
+            }
+        }
+
+        if (flushImmediately) {
+            flushBuffer()
+        }
+    }
+
+    private suspend fun flushBuffer() {
+        val batch: List<UsageRawEventEntity> = bufferLock.withLock {
+            if (pendingEntities.isEmpty()) {
+                pendingFlushJob = null
+                emptyList()
+            } else {
+                val copy = pendingEntities.toList()
+                pendingEntities.clear()
+                pendingFlushJob = null
+                copy
+            }
+        }
+
+        if (batch.isEmpty()) return
+
+        val writeResult = runCatching { rawEventDao.insertAll(batch) }
+        if (writeResult.isFailure) {
+            Log.w(TAG, "Failed to persist tracked events batch", writeResult.exceptionOrNull())
+            bufferLock.withLock {
+                // Prepend failed batch so it is retried on next flush without data loss.
+                pendingEntities.addAll(0, batch)
+                if (pendingFlushJob == null || !pendingFlushJob!!.isActive) {
+                    pendingFlushJob = scope.launch {
+                        delay(FLUSH_WINDOW_MS)
+                        flushBuffer()
+                    }
+                }
+            }
         }
     }
 
@@ -68,5 +122,7 @@ class UsageEventRecorder @Inject constructor(
 
     companion object {
         private const val TAG = "UsageEventRecorder"
+        private const val MAX_BUFFER_SIZE = 25
+        private const val FLUSH_WINDOW_MS = 750L
     }
 }

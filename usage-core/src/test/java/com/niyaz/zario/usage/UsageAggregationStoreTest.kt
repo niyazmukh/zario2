@@ -139,6 +139,68 @@ class UsageAggregationStoreTest {
         assertEquals(sessionEnd, storedSegments.maxOf { it.endMs })
     }
 
+    @Test
+    fun test_ingestWindow__when_existingSessionHasShorterTail__expectTailExtended() = runTest(dispatcher) {
+        val windowStart = nowInstant.minusSeconds(300).toEpochMilli()
+        val windowEnd = nowInstant.toEpochMilli()
+        val sessionStart = windowStart + 10_000
+        val existingEnd = sessionStart + 20_000
+        val updatedEnd = sessionStart + 80_000
+        val dayStart = Instant.ofEpochMilli(sessionStart)
+            .atZone(zone)
+            .toLocalDate()
+            .atStartOfDay(zone)
+            .toInstant()
+            .toEpochMilli()
+
+        dao.upsertAll(
+            listOf(
+                UsageSessionEntity(
+                    packageName = "com.merge",
+                    startMs = sessionStart,
+                    endMs = existingEnd,
+                    durationMs = existingEnd - sessionStart,
+                    dayStartMs = dayStart,
+                    taskRootPackageName = null
+                )
+            )
+        )
+
+        source.events = listOf(
+            TrackedEvent.ActivityLifecycle(
+                epochMillis = sessionStart,
+                confidence = EventConfidence.HIGH,
+                packageName = "com.merge",
+                activityClass = "MergedActivity",
+                state = ActivityLifecycleState.RESUMED
+            ),
+            TrackedEvent.ActivityLifecycle(
+                epochMillis = updatedEnd,
+                confidence = EventConfidence.HIGH,
+                packageName = "com.merge",
+                activityClass = "MergedActivity",
+                state = ActivityLifecycleState.PAUSED
+            ),
+            TrackedEvent.ActivityLifecycle(
+                epochMillis = updatedEnd,
+                confidence = EventConfidence.HIGH,
+                packageName = "com.merge",
+                activityClass = "MergedActivity",
+                state = ActivityLifecycleState.STOPPED
+            )
+        )
+
+        store.ingestWindow(windowStart, windowEnd)
+
+        val stored = dao.sessionsIntersecting(windowStart, windowEnd)
+            .single { it.packageName == "com.merge" }
+
+        assertEquals(sessionStart, stored.startMs)
+        assertEquals(updatedEnd, stored.endMs)
+        assertEquals(updatedEnd - sessionStart, stored.durationMs)
+        assertEquals("MergedActivity", stored.taskRootPackageName)
+    }
+
     /**
      * "Fake" indicates a simple in-memory test double that mimics the DAO contract without Room.
      */

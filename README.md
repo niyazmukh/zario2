@@ -1,6 +1,6 @@
-# Zario — Digital Wellbeing Research App
+# Minutes — Digital Wellbeing Research App
 
-Zario is a modern Android application created at the University of Haifa to explore digital wellbeing interventions. It observes real-world smartphone behaviour, helps participants define intentional usage goals, and nudges them with timely interventions when attention drifts.
+Minutes is a modern Android application created at the University of Haifa to explore digital wellbeing interventions. It observes real-world smartphone behaviour, helps participants define intentional usage goals, and nudges them with timely interventions when attention drifts.
 
 ---
 
@@ -67,8 +67,8 @@ Every persistent record now carries a stable hashed `userId`, making local data 
 ## 🚀 Quickstart
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/niyazmukh/zario2.git
-   cd zario2
+   git clone https://github.com/niyazmukh/minutes2.git
+   cd minutes2
    ```
 
 2. **Open in Android Studio**
@@ -85,7 +85,7 @@ Every persistent record now carries a stable hashed `userId`, making local data 
      ```bash
      ./gradlew assembleDebug
      ```
-   - (Optional) Enable the accessibility fallback: open *Settings → Accessibility → Installed services* and activate **Zario Screen Monitor** if your OEM throttles UsageStats events.
+   - (Optional) Enable the accessibility fallback: open *Settings → Accessibility → Installed services* and activate **Minutes Screen Monitor** if your OEM throttles UsageStats events.
 
 5. **(Optional) Generate release-ready artefacts**
    - Use `./gradlew bundleRelease` or `assembleRelease` once your signing and distribution setup is configured.
@@ -121,7 +121,7 @@ app/
 ├── build.gradle.kts
 ├── src/
 │   ├── main/
-│   │   ├── java/com/niyaz/zario/
+│   │   ├── java/com/niyaz/minutes/
 │   │   │   ├── data/                # Room entities, DAO definitions, usage data mappers
 │   │   │   ├── di/                  # Hilt modules and qualifiers
 │   │   │   ├── repository/          # Business logic and data orchestration

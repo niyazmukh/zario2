@@ -9,7 +9,7 @@ import java.time.ZoneId
  */
 data class UsageAggregationConfig(
     val mergeGap: Duration = Duration.ofMinutes(1),
-    val taskContinuityGap: Duration = Duration.ofSeconds(15),
+    val taskContinuityGap: Duration = Duration.ofSeconds(30),
     val sliceDuration: Duration = Duration.ofHours(12),
     val maxLookback: Duration = Duration.ofDays(8),
     val suppressedTaskRootPackages: Set<String> = emptySet(),

@@ -31,7 +31,7 @@ object Constants {
 	const val WORKER_IDLE_INTERVAL_SECONDS = 900L   // 15 minutes
 	const val WORKER_ACTIVE_INTERVAL_SECONDS = 300L   // 5 minutes
 	const val WORKER_CRITICAL_INTERVAL_SECONDS = 100L // 1.6 minutes
-	const val WORKER_NIGHT_INTERVAL_SECONDS = 1_800L  // 3 minutes
+	const val WORKER_NIGHT_INTERVAL_SECONDS = 1_800L  // 30 minutes
 
 	// Usage progress thresholds
 	const val PROGRESS_MAX_PERCENTAGE = 100f
@@ -49,7 +49,7 @@ object Constants {
 	const val FLEXIBLE_PENALTY = 20
 	const val FLEXIBLE_REWARD_MIN = 0
 	const val FLEXIBLE_REWARD_MAX = 10
-	const val FLEXIBLE_PENALTY_MIN = 10  // Note: Min is 10, not 0 (design decision)
+	const val FLEXIBLE_PENALTY_MIN = 0
 	const val FLEXIBLE_PENALTY_MAX = 40
 	const val MAX_POINTS = 10_000
 

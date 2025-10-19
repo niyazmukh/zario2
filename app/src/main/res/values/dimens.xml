@@ -55,6 +55,14 @@
     <dimen name="history_hourly_chart_height">180dp</dimen>
     <dimen name="history_hourly_bar_width">40dp</dimen>
     <dimen name="history_hourly_bar_max_height">140dp</dimen>
+    
+    <!-- List Item Specific Dimensions -->
+    <dimen name="card_elevation_history_badge">2dp</dimen>
+    <dimen name="progress_track_thickness_list">6dp</dimen>
+    
+    <!-- History Card Elevations (dynamic state-based elevations) -->
+    <dimen name="card_elevation_history_success">4dp</dimen>
+    <dimen name="card_elevation_history_exceeded">8dp</dimen>
 
 
 </resources> 

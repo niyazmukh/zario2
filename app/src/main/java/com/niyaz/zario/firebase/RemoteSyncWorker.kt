@@ -29,8 +29,11 @@ class RemoteSyncWorker @AssistedInject constructor(
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         if (auth.currentUser == null) {
-            Log.w(TAG, "No authenticated user – retrying remote sync later")
-            return@withContext Result.retry()
+            Log.i(TAG, "No authenticated user – clearing pending remote sync workload")
+            runCatching { remoteSyncDao.clearAll() }
+                .onFailure { error -> Log.w(TAG, "Failed to clear remote sync tables", error) }
+            notifier.notifyRecovered(applicationContext)
+            return@withContext Result.success()
         }
 
         runCatching {

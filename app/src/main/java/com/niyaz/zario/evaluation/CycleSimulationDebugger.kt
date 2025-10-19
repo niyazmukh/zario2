@@ -26,6 +26,13 @@ class CycleSimulationDebugger @Inject constructor(
     internal var currentTimeProvider: () -> Long = { System.currentTimeMillis() }
 
     suspend fun simulateCycleCompletion(): Outcome = simulationMutex.withLock {
+        // This debugger is intended for developer/debug builds only. Avoid executing
+        // simulation logic in release builds to prevent accidental data changes.
+        if (!com.niyaz.zario.BuildConfig.DEBUG) {
+            val ex = IllegalStateException("CycleSimulationDebugger is disabled in non-debug builds")
+            Log.w(TAG, "Attempted to run simulateCycleCompletion() in release build", ex)
+            return Outcome.Failure(ex)
+        }
         val existingPlan = evaluationRepository.getCurrentPlan()
             ?: return Outcome.NoPlan
 

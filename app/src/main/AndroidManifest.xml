@@ -28,7 +28,7 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Zario">
+    android:theme="@style/Theme.Zario">
         
         <!-- Disable WorkManager's automatic initialization so our custom HiltWorkerFactory is used -->
         <provider

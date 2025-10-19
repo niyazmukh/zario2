@@ -52,45 +52,45 @@ class FlexStakesFragment : Fragment() {
     }
 
     private fun setupSliders() {
-        // Update reward slider labels from Constants
-        binding.tvRewardMinLabel.text = getString(R.string.slider_numeric_label, Constants.FLEXIBLE_REWARD_MIN)
-        binding.tvRewardMaxLabel.text = getString(R.string.slider_numeric_label, Constants.FLEXIBLE_REWARD_MAX)
-        
-        // Setup reward slider (LEFT to RIGHT: 0 → 10)
+    // Update reward slider labels from Constants
+    binding.tvRewardMinLabel.text = getString(R.string.slider_numeric_label, Constants.FLEXIBLE_REWARD_MIN)
+    binding.tvRewardMaxLabel.text = getString(R.string.slider_numeric_label, Constants.FLEXIBLE_REWARD_MAX)
+
+    // Setup reward slider (LEFT to RIGHT: 0 → 10)
         binding.sliderReward.apply {
             valueFrom = Constants.FLEXIBLE_REWARD_MIN.toFloat()
             valueTo = Constants.FLEXIBLE_REWARD_MAX.toFloat()
             stepSize = 1f
-            value = Constants.FLEXIBLE_REWARD.toFloat() // Default value from Constants
+            value = (Constants.FLEXIBLE_REWARD_MAX / 2).toFloat() // Default to middle value (5)
             
             addOnChangeListener { _, value, _ ->
                 updateRewardValueDisplay(value.toInt())
                 updateContinueButtonState()
             }
         }
-
-        // Update penalty slider labels from Constants
-        binding.tvPenaltyMaxLabel.text = getString(R.string.slider_numeric_label, Constants.FLEXIBLE_PENALTY_MAX)
-        binding.tvPenaltyMinLabel.text = getString(R.string.slider_numeric_label, Constants.FLEXIBLE_PENALTY_MIN)
+    // Update penalty slider labels from Constants
+    binding.tvPenaltyMaxLabel.text = getString(R.string.slider_numeric_label, Constants.FLEXIBLE_PENALTY_MAX)
+    binding.tvPenaltyMinLabel.text = getString(R.string.slider_numeric_label, Constants.FLEXIBLE_PENALTY_MIN)
         
-        // Setup penalty slider (RIGHT to LEFT: 10 → 40)
-        // layoutDirection="rtl" makes slider fill from RIGHT to LEFT
-        // So slider value directly represents penalty points
+        val defaultPenalty = (Constants.FLEXIBLE_PENALTY_MAX / 2)
+
+        // Setup penalty slider so that moving left increases the penalty value
         binding.sliderPenalty.apply {
             valueFrom = Constants.FLEXIBLE_PENALTY_MIN.toFloat()
             valueTo = Constants.FLEXIBLE_PENALTY_MAX.toFloat()
             stepSize = 1f
-            value = Constants.FLEXIBLE_PENALTY.toFloat() // Default value from Constants
+            value = (Constants.FLEXIBLE_PENALTY_MAX - defaultPenalty).toFloat()
             
             addOnChangeListener { _, value, _ ->
-                updatePenaltyValueDisplay(value.toInt())
+                val penaltyValue = Constants.FLEXIBLE_PENALTY_MAX - value.toInt()
+                updatePenaltyValueDisplay(penaltyValue)
                 updateContinueButtonState()
             }
         }
         
         // Initialize value displays
         updateRewardValueDisplay(binding.sliderReward.value.toInt())
-        updatePenaltyValueDisplay(binding.sliderPenalty.value.toInt())
+        updatePenaltyValueDisplay(Constants.FLEXIBLE_PENALTY_MAX - binding.sliderPenalty.value.toInt())
     }
 
     private fun updateRewardValueDisplay(value: Int) {
@@ -106,7 +106,7 @@ class FlexStakesFragment : Fragment() {
     private fun setupClickListeners() {
         binding.btnContinue.setOnClickListener {
             val reward = binding.sliderReward.value.toInt()
-            val penalty = binding.sliderPenalty.value.toInt()
+            val penalty = Constants.FLEXIBLE_PENALTY_MAX - binding.sliderPenalty.value.toInt()
             viewModel.setFlexibleStakes(reward, penalty)
         }
     }

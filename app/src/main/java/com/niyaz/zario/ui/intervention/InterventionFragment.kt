@@ -208,6 +208,9 @@ class InterventionFragment : Fragment() {
     }
 
     private fun updateUI(state: EvaluationState) {
+    // Update subtitle based on current screen-time plan
+    updateSubtitle(state)
+        
         when (state) {
             is EvaluationState.NotStarted -> {
                 showNotStartedState()
@@ -231,6 +234,17 @@ class InterventionFragment : Fragment() {
                 // No-op for future states – keep existing UI untouched
             }
         }
+    }
+    
+    private fun updateSubtitle(state: EvaluationState) {
+        val planLabel = when (state) {
+            is EvaluationState.Active -> state.progress.plan.label
+            is EvaluationState.Success -> state.finalProgress.plan.label
+            is EvaluationState.GoalExceeded -> state.finalProgress.plan.label
+            else -> evaluationRepository.currentPlan.value?.label
+        } ?: ScreenTimePlan.DEFAULT_LABEL
+
+        binding.tvSubtitle.text = getString(R.string.intervention_subtitle, planLabel)
     }
 
     private fun showNotStartedState() {

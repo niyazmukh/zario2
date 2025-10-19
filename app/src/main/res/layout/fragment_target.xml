@@ -132,7 +132,7 @@
         android:layout_marginTop="@dimen/spacing_xl"
         android:layout_marginBottom="@dimen/spacing_lg"
         android:enabled="false"
-        android:text="@string/confirm_goal_selection_disabled"
+        android:text="@string/confirm_goal_selection"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"

@@ -1,7 +1,6 @@
 package com.niyaz.zario.usage
 
 import com.niyaz.zario.usage.ingest.model.ActivityLifecycleState
-import com.niyaz.zario.usage.ingest.model.AppLifecycleState
 import com.niyaz.zario.usage.ingest.model.EventConfidence
 import com.niyaz.zario.usage.ingest.model.ScreenStateEvent
 import com.niyaz.zario.usage.ingest.model.TrackedEvent
@@ -30,13 +29,19 @@ class UsageTimelineReconciler(
                 is TrackedEvent.ActivityLifecycle -> handleActivityEvent(event, openSessions, sessions)
                 is TrackedEvent.UsageStats -> handleUsageStats(event, openSessions, sessions)
                 is TrackedEvent.ScreenState -> handleScreen(event, openSessions, sessions)
-                is TrackedEvent.AppLifecycle -> handleAppLifecycle(event, openSessions, sessions)
+                is TrackedEvent.AppLifecycle -> {
+                    // AppLifecycle events are deprecated/removed from the pipeline. No-op to satisfy
+                    // Kotlin's exhaustiveness check; previously these attempted to close sessions but
+                    // foreground attribution was unreliable without accessibility privileges.
+                }
             }
         }
 
-        // Only extend open sessions to windowEnd if they were never closed by a PAUSED/STOPPED/etc event
+        // Treat any still-open session as running through the end of the window we just processed.
+        // This avoids under-counting long-lived sessions (e.g., video playback) that emit sparse
+        // foreground events but remain active until an explicit close event arrives later.
         for ((_, accumulator) in openSessions) {
-            sessions += accumulator.finish(accumulator.lastEventMs, 0L) // End at last event, no artificial extension
+            sessions += accumulator.finish(windowEndMs, 0L)
         }
 
         return mergeSessions(sessions)
@@ -98,19 +103,6 @@ class UsageTimelineReconciler(
         }
     }
 
-    private fun handleAppLifecycle(
-        event: TrackedEvent.AppLifecycle,
-        open: MutableMap<String, SessionAccumulator>,
-        sessions: MutableList<UsageSession>
-    ) {
-        if (event.state == AppLifecycleState.BACKGROUND) {
-            sessions += open.finishAll(
-                timestamp = event.epochMillis,
-                confidence = event.confidence
-            )
-        }
-    }
-
     private fun MutableMap<String, SessionAccumulator>.ensureForeground(
         packageName: String,
         timestamp: Long,
@@ -142,8 +134,8 @@ class UsageTimelineReconciler(
         }
         val updated = accumulator.withCloseBoundary(timestamp)
         remove(packageName)
-        // End session exactly at this close event
-        return updated.finish(timestamp, 0L)
+        // Extend session with continuity gap to handle brief interruptions (matches Digital Wellbeing)
+        return updated.finish(timestamp, taskContinuityGapMs)
     }
 
     private fun MutableMap<String, SessionAccumulator>.finishAll(
@@ -159,8 +151,8 @@ class UsageTimelineReconciler(
                 entry.setValue(accumulator.withTouch(timestamp, confidence))
                 continue
             }
-            // End session exactly at this close event
-            finished += accumulator.withCloseBoundary(timestamp).finish(timestamp, 0L)
+            // Extend session with continuity gap to handle brief interruptions (matches Digital Wellbeing)
+            finished += accumulator.withCloseBoundary(timestamp).finish(timestamp, taskContinuityGapMs)
             iterator.remove()
         }
         return finished

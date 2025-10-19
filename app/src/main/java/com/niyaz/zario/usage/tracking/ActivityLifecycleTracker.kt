@@ -50,17 +50,10 @@ class ActivityLifecycleTracker @Inject constructor(
         )
     }
 
-    override fun onActivityDestroyed(activity: Activity) {
-        recorder.publish(
-            TrackedEvent.ActivityLifecycle(
-                epochMillis = System.currentTimeMillis(),
-                confidence = EventConfidence.MEDIUM,
-                packageName = activity.packageName,
-                activityClass = activity.javaClass.name,
-                state = ActivityLifecycleState.DESTROYED
-            )
-        )
-    }
+    // Implement the destroy callback as a no-op to satisfy the ActivityLifecycleCallbacks
+    // interface. We intentionally avoid publishing DESTROYED events because they were
+    // absent in observed UsageEvents and produced undesirable confidence interactions.
+    override fun onActivityDestroyed(activity: Activity) = Unit
 
     override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) = Unit
     override fun onActivityStarted(activity: Activity) = Unit

@@ -35,8 +35,8 @@ android {
         applicationId = "com.niyaz.zario"
         minSdk = 29
         targetSdk = 35
-        versionCode = 6
-        versionName = "1.3.2"
+        versionCode = 10
+        versionName = "1.3.6"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
@@ -48,8 +48,14 @@ android {
 
     signingConfigs {
         val keystoreFile = rootProject.file("keystore/zario-release.jks")
-        val releaseStorePassword = loadCredential("ZARIO_KEYSTORE_PASSWORD")
-        val releaseKeyPassword = loadCredential("ZARIO_KEY_PASSWORD")
+        fun readCredential(primaryKey: String, legacyKey: String?): String? {
+            val primary = loadCredential(primaryKey)
+            if (!primary.isNullOrBlank()) return primary
+            return legacyKey?.let { loadCredential(it) }
+        }
+
+        val releaseStorePassword = readCredential("ZARIO_KEYSTORE_PASSWORD", "ZARIO_KEYSTORE_PASSWORD")
+        val releaseKeyPassword = readCredential("ZARIO_KEY_PASSWORD", "ZARIO_KEY_PASSWORD")
         val releaseCredentialsConfigured = !releaseStorePassword.isNullOrBlank() &&
             !releaseKeyPassword.isNullOrBlank() &&
             keystoreFile.exists()
@@ -62,7 +68,12 @@ android {
                 keyPassword = releaseKeyPassword!!
             }
         } else {
-            logger.lifecycle("Release keystore credentials not detected. Release signing will be configured once credentials are provided via environment variables or local.properties.")
+            val missingPieces = buildList {
+                if (!keystoreFile.exists()) add("keystore file ${keystoreFile.path}")
+                if (releaseStorePassword.isNullOrBlank()) add("ZARIO_KEYSTORE_PASSWORD")
+                if (releaseKeyPassword.isNullOrBlank()) add("ZARIO_KEY_PASSWORD")
+            }.joinToString(", ")
+            logger.lifecycle("Release keystore configuration incomplete. Missing: $missingPieces")
         }
     }
 
@@ -82,7 +93,7 @@ android {
                 signingConfig = signingConfigs.getByName("release")
             } else if (requestedRelease) {
                 throw GradleException(
-                    "Release signing credentials are missing. Set ZARIO_KEYSTORE_PASSWORD and ZARIO_KEY_PASSWORD as environment variables or define them in local.properties (untracked)."
+                    "Release signing credentials are missing. Set ZARIO_KEYSTORE_PASSWORD and ZARIO_KEY_PASSWORD (or legacy ZARIO_* equivalents) via environment variables or local.properties (untracked)."
                 )
             }
         }
@@ -111,9 +122,9 @@ kapt {
 
 dependencies {
     implementation(project(":usage-core"))
-    implementation(platform(libs.firebase.bom))
-    implementation(libs.firebase.auth.ktx)
-    implementation(libs.firebase.firestore.ktx)
+    implementation(platform("com.google.firebase:firebase-bom:34.4.0"))
+    implementation("com.google.firebase:firebase-auth-ktx:23.1.0")
+    implementation("com.google.firebase:firebase-firestore-ktx:25.1.0")
     implementation(libs.kotlinx.coroutines.play.services)
 
     implementation(libs.androidx.core.ktx)

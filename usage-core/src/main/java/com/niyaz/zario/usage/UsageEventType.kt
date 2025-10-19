@@ -57,7 +57,7 @@ enum class UsageEventType(
         get() = this == MOVE_TO_FOREGROUND
 
     val isForegroundCloseEvent: Boolean
-        get() = this == MOVE_TO_BACKGROUND || this == ACTIVITY_STOPPED
+        get() = this == MOVE_TO_BACKGROUND 
 
     val closesAllSessions: Boolean
         get() = this == DEVICE_SHUTDOWN || this == KEYGUARD_SHOWN || this == SCREEN_NON_INTERACTIVE

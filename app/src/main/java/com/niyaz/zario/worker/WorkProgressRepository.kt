@@ -12,6 +12,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.emptyFlow
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -30,43 +31,50 @@ class WorkProgressRepository @Inject constructor(
      * Observes progress and state changes for the specified unique work.
      * Emits [WorkProgressUpdate] events as the work progresses.
      */
-    fun observeWorkProgress(uniqueWorkName: String): Flow<WorkProgressUpdate> = callbackFlow {
-        val liveData: LiveData<List<WorkInfo>> = workManager.getWorkInfosForUniqueWorkLiveData(uniqueWorkName)
-        
-        val observer = Observer<List<WorkInfo>> { workInfos ->
-            if (BuildConfig.DEBUG) {
-                Log.d(TAG, "Work info update for '$uniqueWorkName', count: ${workInfos?.size ?: 0}")
-            }
+    fun observeWorkProgress(uniqueWorkName: String): Flow<WorkProgressUpdate> {
+        // Emit running progress only in debug builds. In release, emit only terminal states
+        // (succeeded/failed/cancelled) so the app can detect completion without verbose
+        // instrumentation.
+        val emitRunning = BuildConfig.DEBUG
 
-            workInfos?.forEach { workInfo ->
-                when (workInfo.state) {
-                    WorkInfo.State.RUNNING -> {
-                        trySend(WorkProgressUpdate.Running(workInfo.progress))
-                    }
-                    WorkInfo.State.SUCCEEDED -> {
-                        trySend(WorkProgressUpdate.Succeeded(workInfo.outputData))
-                    }
-                    WorkInfo.State.FAILED -> {
-                        trySend(WorkProgressUpdate.Failed)
-                    }
-                    WorkInfo.State.CANCELLED -> {
-                        trySend(WorkProgressUpdate.Cancelled)
-                    }
-                    else -> {
-                        if (BuildConfig.DEBUG) {
-                            Log.d(TAG, "Work state: ${workInfo.state}")
+        return callbackFlow {
+            val liveData: LiveData<List<WorkInfo>> = workManager.getWorkInfosForUniqueWorkLiveData(uniqueWorkName)
+
+            val observer = Observer<List<WorkInfo>> { workInfos ->
+                if (BuildConfig.DEBUG) {
+                    Log.d(TAG, "Work info update for '$uniqueWorkName', count: ${workInfos?.size ?: 0}")
+                }
+
+                workInfos?.forEach { workInfo ->
+                    when (workInfo.state) {
+                        WorkInfo.State.RUNNING -> {
+                            if (emitRunning) trySend(WorkProgressUpdate.Running(workInfo.progress))
+                        }
+                        WorkInfo.State.SUCCEEDED -> {
+                            trySend(WorkProgressUpdate.Succeeded(workInfo.outputData))
+                        }
+                        WorkInfo.State.FAILED -> {
+                            trySend(WorkProgressUpdate.Failed)
+                        }
+                        WorkInfo.State.CANCELLED -> {
+                            trySend(WorkProgressUpdate.Cancelled)
+                        }
+                        else -> {
+                            if (BuildConfig.DEBUG) {
+                                Log.d(TAG, "Work state: ${workInfo.state}")
+                            }
                         }
                     }
                 }
             }
-        }
 
-        liveData.observeForever(observer)
+            liveData.observeForever(observer)
 
-        awaitClose {
-            liveData.removeObserver(observer)
-            if (BuildConfig.DEBUG) {
-                Log.d(TAG, "Work observer for '$uniqueWorkName' cleaned up")
+            awaitClose {
+                liveData.removeObserver(observer)
+                if (BuildConfig.DEBUG) {
+                    Log.d(TAG, "Work observer for '$uniqueWorkName' cleaned up")
+                }
             }
         }
     }

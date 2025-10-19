@@ -71,6 +71,22 @@ interface RemoteSyncDao {
     @Query("DELETE FROM pending_hourly_sync WHERE parentCycleId = :parentId")
     suspend fun deleteHourlyByParent(parentId: Long)
 
+    @Query("DELETE FROM pending_cycle_sync")
+    suspend fun deleteAllCycles()
+
+    @Query("DELETE FROM pending_hourly_sync")
+    suspend fun deleteAllHourly()
+
+    @Query("DELETE FROM hourly_sync_state")
+    suspend fun deleteAllStates()
+
+    @Transaction
+    suspend fun clearAll() {
+        deleteAllHourly()
+        deleteAllCycles()
+        deleteAllStates()
+    }
+
     data class PendingCycleWithHourly(
         @Embedded val cycle: PendingCycleSyncEntity,
         @Relation(

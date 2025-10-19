@@ -1,6 +1,6 @@
 <resources>
     <!-- Theme for Android 12+ (API 31+) with native Splash Screen API -->
-    <style name="Theme.Minutes" parent="Theme.Material3.DayNight.NoActionBar">
+    <style name="Theme.Zario" parent="Theme.Material3.DayNight.NoActionBar">
         <!-- Primary brand color. -->
         <item name="colorPrimary">@color/purple_500</item>
         <item name="colorOnPrimary">@color/white</item>

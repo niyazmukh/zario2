@@ -104,23 +104,7 @@ class UsageAggregationStore(
             if (windowStartMs >= windowEndMs) return@withContext emptyList()
 
             val sessions = dao.sessionsIntersecting(windowStartMs, windowEndMs)
-            if (sessions.isEmpty()) return@withContext emptyList()
-
-            val buckets = mutableListOf<UsageBucket>()
-            val alignedStart = (windowStartMs / bucketSizeMs) * bucketSizeMs
-            var cursor = alignedStart
-            while (cursor < windowEndMs) {
-                val bucketEnd = minOf(windowEndMs, cursor + bucketSizeMs)
-                val effectiveStart = maxOf(cursor, windowStartMs)
-                if (effectiveStart >= bucketEnd) {
-                    cursor += bucketSizeMs
-                    continue
-                }
-                val totals = computeTotals(sessions, effectiveStart, bucketEnd)
-                buckets += UsageBucket(cursor, bucketEnd, totals)
-                cursor = bucketEnd
-            }
-            buckets
+            buildBuckets(windowStartMs, windowEndMs, bucketSizeMs, sessions)
         }
 
     /**
@@ -133,24 +117,33 @@ class UsageAggregationStore(
             if (windowStartMs >= windowEndMs) return@withContext emptyList()
 
             val sessions = dao.sessionsIntersectingForDay(dayStartMs, windowStartMs, windowEndMs)
-            if (sessions.isEmpty()) return@withContext emptyList()
-
-            val buckets = mutableListOf<UsageBucket>()
-            val alignedStart = (windowStartMs / bucketSizeMs) * bucketSizeMs
-            var cursor = alignedStart
-            while (cursor < windowEndMs) {
-                val bucketEnd = minOf(windowEndMs, cursor + bucketSizeMs)
-                val effectiveStart = maxOf(cursor, windowStartMs)
-                if (effectiveStart >= bucketEnd) {
-                    cursor += bucketSizeMs
-                    continue
-                }
-                val totals = computeTotals(sessions, effectiveStart, bucketEnd)
-                buckets += UsageBucket(cursor, bucketEnd, totals)
-                cursor = bucketEnd
-            }
-            buckets
+            buildBuckets(windowStartMs, windowEndMs, bucketSizeMs, sessions)
         }
+
+    private fun buildBuckets(
+        windowStartMs: Long,
+        windowEndMs: Long,
+        bucketSizeMs: Long,
+        sessions: List<UsageSessionEntity>
+    ): List<UsageBucket> {
+        if (sessions.isEmpty()) return emptyList()
+
+        val buckets = mutableListOf<UsageBucket>()
+        val alignedStart = (windowStartMs / bucketSizeMs) * bucketSizeMs
+        var cursor = alignedStart
+        while (cursor < windowEndMs) {
+            val bucketEnd = minOf(windowEndMs, cursor + bucketSizeMs)
+            val effectiveStart = maxOf(cursor, windowStartMs)
+            if (effectiveStart >= bucketEnd) {
+                cursor += bucketSizeMs
+                continue
+            }
+            val totals = computeTotals(sessions, effectiveStart, bucketEnd)
+            buckets += UsageBucket(cursor, bucketEnd, totals)
+            cursor = bucketEnd
+        }
+        return buckets
+    }
 
     private fun computeTotals(
         sessions: List<UsageSessionEntity>,
