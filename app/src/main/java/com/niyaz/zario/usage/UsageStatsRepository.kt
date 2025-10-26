@@ -1,7 +1,7 @@
 package com.niyaz.zario.core.usage
 
 import android.util.Log
-import com.niyaz.zario.BuildConfig
+import com.niyaz.zario.BuildFlags
 import com.niyaz.zario.di.ApplicationScope
 import com.niyaz.zario.usage.UsageAggregationConfig
 import com.niyaz.zario.usage.UsageAggregationStore
@@ -74,7 +74,7 @@ class UsageStatsRepository @Inject constructor(
         val cacheAge = if (lastRefreshTimestamp != 0L) now - lastRefreshTimestamp else Long.MAX_VALUE
         val isFresh = isSameDay && lastRefreshTimestamp != 0L && cacheAge < refreshIntervalMs
         
-        if (BuildConfig.DEBUG) {
+        if (BuildFlags.isDebug) {
             Log.d(TAG, "getSnapshot(forceRefresh=$forceRefresh) - cacheAge=${cacheAge}ms, isFresh=$isFresh, cached.totalMs=${cached.totalUsageMs}")
         }
         
@@ -85,14 +85,14 @@ class UsageStatsRepository @Inject constructor(
             val latestSameDay = lastSnapshotDate == effectiveToday
             val stillFresh = !forceRefresh && latestSameDay && lastRefreshTimestamp != 0L && latestCacheAge < refreshIntervalMs
             if (stillFresh) {
-                if (BuildConfig.DEBUG) {
+                if (BuildFlags.isDebug) {
                     Log.d(TAG, "Returning CACHED snapshot (age=${latestCacheAge}ms)")
                 }
                 return@withLock _snapshot.value
             }
 
             val reason = if (forceRefresh) "forced" else "stale (age=${latestCacheAge}ms > ${refreshIntervalMs}ms)"
-            if (BuildConfig.DEBUG) {
+            if (BuildFlags.isDebug) {
                 Log.d(TAG, "Refreshing snapshot - reason: $reason")
             }
             refreshCurrentDayLocked(latestNow, effectiveToday)
@@ -124,7 +124,7 @@ class UsageStatsRepository @Inject constructor(
             // Calculate which day this query is for
             val zoneId = config.zoneId
             val rangeStart = LocalDate.ofInstant(Instant.ofEpochMilli(boundedStart), zoneId)
-            val dayStart = rangeStart.atStartOfDay(zoneId).toInstant().toEpochMilli()
+            var dayStart = rangeStart.atStartOfDay(zoneId).toInstant().toEpochMilli()
             
             // Invalidate cache if historical query overlaps with current day
             val today = LocalDate.ofInstant(Instant.ofEpochMilli(now), zoneId)
@@ -135,9 +135,27 @@ class UsageStatsRepository @Inject constructor(
                 lastSnapshotDate = null
             }
             
-            // Use day-specific query to prevent cross-day contamination
-            store.bucketsForDay(dayStart, boundedStart, boundedEnd, bucketSizeMillis)
+            val buckets = mutableListOf<UsageBucket>()
+            while (dayStart < boundedEnd) {
+                val nextDayStart = dayStart + ONE_DAY_MS
+                val dayWindowStart = maxOf(boundedStart, dayStart)
+                val dayWindowEnd = minOf(boundedEnd, nextDayStart)
+                if (dayWindowEnd > dayWindowStart) {
+                    buckets += store.bucketsForDay(dayStart, dayWindowStart, dayWindowEnd, bucketSizeMillis)
+                }
+                dayStart = nextDayStart
+            }
+            buckets
         }
+    }
+
+    suspend fun getCycleSummary(
+        cycleStartMillis: Long,
+        forceRefresh: Boolean = false
+    ): UsageSummary {
+        require(cycleStartMillis >= 0L) { "cycleStartMillis must be non-negative" }
+        val cycleEnd = cycleStartMillis + ONE_DAY_MS
+        return summarizeWindow(cycleStartMillis, cycleEnd, forceRefresh)
     }
 
     suspend fun getGlobalUsageSummary(days: Int): UsageGlobalSummary {
@@ -192,7 +210,7 @@ class UsageStatsRepository @Inject constructor(
         } else {
             val dayStart = date.atStartOfDay(config.zoneId).toInstant().toEpochMilli()
             val endExclusive = dayStart + ONE_DAY_MS
-            summarizeWindow(dayStart, endExclusive)
+            summarizeWindow(dayStart, endExclusive, forceRefresh)
         }
     }
 
@@ -256,7 +274,11 @@ class UsageStatsRepository @Inject constructor(
         }
     }
 
-    private suspend fun summarizeWindow(windowStart: Long, windowEndExclusive: Long): UsageSummary {
+    private suspend fun summarizeWindow(
+        windowStart: Long,
+        windowEndExclusive: Long,
+        forceRefresh: Boolean = false
+    ): UsageSummary {
         require(windowStart < windowEndExclusive) { "windowStart must be < windowEndExclusive" }
         return refreshMutex.withLock {
             val now = currentTime()
@@ -266,6 +288,10 @@ class UsageStatsRepository @Inject constructor(
                 return@withLock UsageSummary(windowStart, boundedEnd, emptyMap())
             }
             store.ingestWindow(boundedStart, boundedEnd)
+            if (forceRefresh && boundedEnd == now) {
+                lastRefreshTimestamp = 0L
+                lastSnapshotDate = null
+            }
             store.summarize(windowStart, boundedEnd)
         }
     }

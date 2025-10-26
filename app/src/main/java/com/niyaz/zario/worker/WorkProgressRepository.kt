@@ -7,7 +7,7 @@ import androidx.lifecycle.Observer
 import androidx.work.Data
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
-import com.niyaz.zario.BuildConfig
+import com.niyaz.zario.BuildFlags
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -35,13 +35,13 @@ class WorkProgressRepository @Inject constructor(
         // Emit running progress only in debug builds. In release, emit only terminal states
         // (succeeded/failed/cancelled) so the app can detect completion without verbose
         // instrumentation.
-        val emitRunning = BuildConfig.DEBUG
+        val emitRunning = BuildFlags.isDebug
 
         return callbackFlow {
             val liveData: LiveData<List<WorkInfo>> = workManager.getWorkInfosForUniqueWorkLiveData(uniqueWorkName)
 
             val observer = Observer<List<WorkInfo>> { workInfos ->
-                if (BuildConfig.DEBUG) {
+                if (BuildFlags.isDebug) {
                     Log.d(TAG, "Work info update for '$uniqueWorkName', count: ${workInfos?.size ?: 0}")
                 }
 
@@ -60,7 +60,7 @@ class WorkProgressRepository @Inject constructor(
                             trySend(WorkProgressUpdate.Cancelled)
                         }
                         else -> {
-                            if (BuildConfig.DEBUG) {
+                            if (BuildFlags.isDebug) {
                                 Log.d(TAG, "Work state: ${workInfo.state}")
                             }
                         }
@@ -72,7 +72,7 @@ class WorkProgressRepository @Inject constructor(
 
             awaitClose {
                 liveData.removeObserver(observer)
-                if (BuildConfig.DEBUG) {
+                if (BuildFlags.isDebug) {
                     Log.d(TAG, "Work observer for '$uniqueWorkName' cleaned up")
                 }
             }

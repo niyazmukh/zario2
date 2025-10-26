@@ -5,6 +5,7 @@ package com.niyaz.zario.data
  */
 enum class Condition {
     CONTROL,
+    BENCHMARK,
     FLEXIBLE,
     DEPOSIT;
 
@@ -14,5 +15,9 @@ enum class Condition {
         } catch (_: IllegalArgumentException) {
             CONTROL
         }
+
+        private val SIGNUP_CONDITIONS = arrayOf(CONTROL, DEPOSIT, BENCHMARK)
+
+        fun randomForSignup(): Condition = SIGNUP_CONDITIONS.random()
     }
 }

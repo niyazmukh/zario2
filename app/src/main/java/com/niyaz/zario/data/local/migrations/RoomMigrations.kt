@@ -33,6 +33,12 @@ object RoomMigrations {
         db.execSQL(
             "CREATE INDEX IF NOT EXISTS `index_evaluation_history_userId_evaluationEndTime` ON `evaluation_history`(`userId`, `evaluationEndTime`)"
         )
+        // Support queries that match by userEmail when userId is missing. This creates
+        // a separate index so the OR-search in EvaluationHistoryDao can use an index
+        // path when filtering by email + evaluationEndTime.
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_evaluation_history_userEmail_evaluationEndTime` ON `evaluation_history`(`userEmail`, `evaluationEndTime`)"
+        )
 
         db.execSQL(
             """
@@ -123,6 +129,59 @@ object RoomMigrations {
         )
     }
 
+    private fun migrateToVersion6(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `hourly_app_usage_v6` (
+                `userId` TEXT NOT NULL,
+                `userEmail` TEXT NOT NULL,
+                `planLabel` TEXT NOT NULL,
+                `cycleStartTime` INTEGER NOT NULL,
+                `hourStartTime` INTEGER NOT NULL,
+                `hourEndTime` INTEGER NOT NULL,
+                `packageName` TEXT NOT NULL,
+                `usageMs` INTEGER NOT NULL,
+                PRIMARY KEY(`userId`, `planLabel`, `cycleStartTime`, `hourStartTime`, `packageName`)
+            )
+            """.trimIndent()
+        )
+
+        db.execSQL(
+            """
+            INSERT OR REPLACE INTO `hourly_app_usage_v6` (
+                `userId`,
+                `userEmail`,
+                `planLabel`,
+                `cycleStartTime`,
+                `hourStartTime`,
+                `hourEndTime`,
+                `packageName`,
+                `usageMs`
+            )
+            SELECT
+                `userId`,
+                `userEmail`,
+                `planLabel`,
+                `cycleStartTime`,
+                `hourStartTime`,
+                `hourEndTime`,
+                `packageName`,
+                `usageMs`
+            FROM `hourly_app_usage`
+            """.trimIndent()
+        )
+
+        db.execSQL("DROP TABLE IF EXISTS `hourly_app_usage`")
+        db.execSQL("ALTER TABLE `hourly_app_usage_v6` RENAME TO `hourly_app_usage`")
+
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_hourly_app_usage_userId_cycleStartTime_hourStartTime` ON `hourly_app_usage`(`userId`, `cycleStartTime`, `hourStartTime`)"
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_hourly_app_usage_userId_planLabel` ON `hourly_app_usage`(`userId`, `planLabel`)"
+        )
+    }
+
     val MIGRATION_1_5: Migration = object : Migration(1, 5) {
         override fun migrate(db: SupportSQLiteDatabase) = migrateToVersion5(db)
     }
@@ -139,10 +198,15 @@ object RoomMigrations {
         override fun migrate(db: SupportSQLiteDatabase) = migrateToVersion5(db)
     }
 
+    val MIGRATION_5_6: Migration = object : Migration(5, 6) {
+        override fun migrate(db: SupportSQLiteDatabase) = migrateToVersion6(db)
+    }
+
     val ALL: Array<Migration> = arrayOf(
         MIGRATION_1_5,
         MIGRATION_2_5,
         MIGRATION_3_5,
-        MIGRATION_4_5
+        MIGRATION_4_5,
+        MIGRATION_5_6
     )
 }

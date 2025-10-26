@@ -2,7 +2,7 @@ package com.niyaz.zario.di
 
 import android.app.usage.UsageStatsManager
 import android.content.Context
-import com.niyaz.zario.BuildConfig
+import com.niyaz.zario.BuildFlags
 import androidx.room.Room
 import com.niyaz.zario.usage.UsageAggregationConfig
 import com.niyaz.zario.usage.UsageAggregationStore
@@ -17,6 +17,7 @@ import com.niyaz.zario.usage.storage.UsageAggregationDatabase
 import com.niyaz.zario.usage.storage.UsageRawEventDao
 import com.niyaz.zario.usage.storage.UsageSessionDao
 import com.niyaz.zario.usage.tracking.CompositeTrackedEventSource
+import com.niyaz.zario.usage.tracking.LauncherPackageResolver
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -53,14 +54,43 @@ object UsageAggregationModule {
         "com.google.android.permissioncontroller.permission.ui.ReviewPermissionsActivity"
     )
 
+    private val HOST_ATTRIBUTION_PACKAGES = setOf(
+        "com.android.vending",
+        "com.google.android.instantapps.supervisor",
+        "com.google.android.googlequicksearchbox"
+    )
+
+    private val NAVIGATION_PACKAGES = setOf(
+        "com.android.systemui",
+        "com.android.quickstep",
+        "com.google.android.permissioncontroller",
+        "com.android.permissioncontroller",
+        "com.google.android.packageinstaller",
+        "com.niyaz.zario"
+    )
+
+    private val NAVIGATION_ACTIVITY_CLASS_NAMES = SUPPRESSED_TASK_ROOT_CLASS_NAMES
+
     @Provides
     @Singleton
-    fun provideUsageAggregationConfig(): UsageAggregationConfig =
-        UsageAggregationConfig(
-            suppressedTaskRootPackages = SUPPRESSED_TASK_ROOT_PACKAGES,
-            suppressedTaskRootClassNames = SUPPRESSED_TASK_ROOT_CLASS_NAMES,
+    fun provideUsageAggregationConfig(
+        launcherPackageResolver: LauncherPackageResolver
+    ): UsageAggregationConfig {
+        val launcherResult = launcherPackageResolver.resolve()
+        val suppressedPackages = (SUPPRESSED_TASK_ROOT_PACKAGES + launcherResult.packages).toSet()
+        val suppressedClasses = (SUPPRESSED_TASK_ROOT_CLASS_NAMES + launcherResult.activityClassNames).toSet()
+        val navigationPackages = (NAVIGATION_PACKAGES + launcherResult.packages).toSet()
+        val navigationClasses = (NAVIGATION_ACTIVITY_CLASS_NAMES + launcherResult.activityClassNames).toSet()
+
+        return UsageAggregationConfig(
+            suppressedTaskRootPackages = suppressedPackages,
+            suppressedTaskRootClassNames = suppressedClasses,
+            hostPackagesForAttribution = HOST_ATTRIBUTION_PACKAGES,
+            navigationPackages = navigationPackages,
+            navigationActivityClassNames = navigationClasses,
             enableFilteredEventQuery = true
         )
+    }
 
     @Provides
     @Singleton
@@ -105,7 +135,7 @@ object UsageAggregationModule {
     fun provideUsageIngestionTelemetry(
         logger: UsageIngestionTelemetryLogger
     ): UsageIngestionTelemetry =
-        if (BuildConfig.DEBUG) {
+        if (BuildFlags.isDebug) {
             // In debug builds use the verbose logger
             logger
         } else {
@@ -135,12 +165,14 @@ object UsageAggregationModule {
         trackedEventSource: TrackedEventSource,
         rawEventDao: UsageRawEventDao,
         sessionDao: UsageSessionDao,
-        config: UsageAggregationConfig
+        config: UsageAggregationConfig,
+        telemetry: UsageIngestionTelemetry
     ): UsageAggregationStore = UsageAggregationStore(
         trackedEventSource = trackedEventSource,
         timelineReconciler = UsageTimelineReconciler(config),
         dao = sessionDao,
         rawEventDao = rawEventDao,
-        config = config
+        config = config,
+        telemetry = telemetry
     )
 }

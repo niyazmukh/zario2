@@ -147,4 +147,42 @@ class ProfileViewModelTest {
         assertEquals(listOf(121, 114, 107), state.cycles.map { it.pointsAfter })
         assertEquals(121, state.totalPoints)
     }
+
+    @Test
+    fun test_profileState__benchmarkCondition__hidesPointSummaries() = runTest {
+        val email = "bench@example.com"
+        val userId = UserIdentity.fromEmail(email)
+        val user = User(
+            email = email,
+            id = userId,
+            yearOfBirth = "1990",
+            gender = "Other",
+            condition = Condition.BENCHMARK,
+            points = 150
+        )
+        sessionFlow.value = UserSession(isLoggedIn = true, user = user)
+
+        val viewModel = ProfileViewModel(userSessionRepository, evaluationHistoryDao)
+
+        val entry = EvaluationHistoryEntry(
+            id = 10L,
+            userId = userId,
+            userEmail = email,
+            planLabel = "focus",
+            goalTimeMs = 3_600_000L,
+            dailyAverageMs = 3_000_000L,
+            finalUsageMs = 2_900_000L,
+            evaluationStartTime = Instant.parse("2024-09-25T00:00:00Z").toEpochMilli(),
+            evaluationEndTime = Instant.parse("2024-09-26T00:00:00Z").toEpochMilli(),
+            metGoal = true,
+            pointsDelta = 0,
+            pointsBalanceAfter = 175
+        )
+        historyFlow.tryEmit(listOf(entry))
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals("Expected benchmark condition to hide total points", null, state.totalPoints)
+        assertTrue("Expected benchmark condition to hide cycle point totals", state.cycles.all { it.pointsAfter == null })
+    }
 }

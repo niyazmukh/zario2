@@ -214,11 +214,11 @@ class PermissionsManager @Inject constructor(
         val permissionsNeeded = mutableListOf<String>()
         
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !hasNotificationPermission(forceRefresh = true)) {
-            permissionsNeeded.add("📢 Notifications - to alert you about screen time goals")
+                        permissionsNeeded.add("- Notifications: required to alert you about screen time goals")
         }
         
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !BatteryOptimizationUtils.isIgnoringBatteryOptimizations(context)) {
-            permissionsNeeded.add("🔋 Battery Optimization Exemption - for reliable background tracking")
+                        permissionsNeeded.add("- Battery optimization exemption: keeps background tracking reliable")
         }
         
         if (permissionsNeeded.isEmpty()) {

@@ -72,25 +72,25 @@ class FlexStakesFragment : Fragment() {
     binding.tvPenaltyMaxLabel.text = getString(R.string.slider_numeric_label, Constants.FLEXIBLE_PENALTY_MAX)
     binding.tvPenaltyMinLabel.text = getString(R.string.slider_numeric_label, Constants.FLEXIBLE_PENALTY_MIN)
         
-        val defaultPenalty = (Constants.FLEXIBLE_PENALTY_MAX / 2)
-
-        // Setup penalty slider so that moving left increases the penalty value
         binding.sliderPenalty.apply {
             valueFrom = Constants.FLEXIBLE_PENALTY_MIN.toFloat()
             valueTo = Constants.FLEXIBLE_PENALTY_MAX.toFloat()
             stepSize = 1f
-            value = (Constants.FLEXIBLE_PENALTY_MAX - defaultPenalty).toFloat()
-            
-            addOnChangeListener { _, value, _ ->
-                val penaltyValue = Constants.FLEXIBLE_PENALTY_MAX - value.toInt()
-                updatePenaltyValueDisplay(penaltyValue)
+            value = (Constants.FLEXIBLE_PENALTY_MIN + Constants.FLEXIBLE_PENALTY_MAX) / 2f
+            layoutDirection = View.LAYOUT_DIRECTION_RTL
+            setLabelFormatter { raw ->
+                getString(R.string.flexstakes_penalty_value_short, raw.toInt())
+            }
+
+            addOnChangeListener { _, penalty, _ ->
+                updatePenaltyValueDisplay(penalty.toInt())
                 updateContinueButtonState()
             }
         }
         
         // Initialize value displays
         updateRewardValueDisplay(binding.sliderReward.value.toInt())
-        updatePenaltyValueDisplay(Constants.FLEXIBLE_PENALTY_MAX - binding.sliderPenalty.value.toInt())
+        updatePenaltyValueDisplay(binding.sliderPenalty.value.toInt())
     }
 
     private fun updateRewardValueDisplay(value: Int) {
@@ -106,7 +106,7 @@ class FlexStakesFragment : Fragment() {
     private fun setupClickListeners() {
         binding.btnContinue.setOnClickListener {
             val reward = binding.sliderReward.value.toInt()
-            val penalty = Constants.FLEXIBLE_PENALTY_MAX - binding.sliderPenalty.value.toInt()
+            val penalty = binding.sliderPenalty.value.toInt()
             viewModel.setFlexibleStakes(reward, penalty)
         }
     }

@@ -75,6 +75,7 @@
         android:layout_marginTop="@dimen/spacing_xl"
         android:visibility="gone"
         android:orientation="vertical"
+        android:gravity="center_horizontal"
         android:padding="@dimen/spacing_md"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -86,11 +87,37 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/spacing_md"
+            android:layout_marginBottom="@dimen/spacing_md"
             android:textAppearance="?attr/textAppearanceTitleLarge"
             android:textColor="?attr/colorOnSurface"
+            android:gravity="center_horizontal"
             tools:text="Used on average 2h 30m a day." />
 
-        <!-- Today's Usage -->
+        <!-- Reduction Info (moved up to appear after usage) -->
+        <TextView
+            android:id="@+id/tv_reduction_info"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/spacing_md"
+            android:layout_marginBottom="@dimen/spacing_md"
+            android:textAppearance="?attr/textAppearanceTitleLarge"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            android:gravity="center_horizontal"
+            android:text="@string/goal_reduction_percentage" />
+
+        <!-- Goal Usage -->
+        <TextView
+            android:id="@+id/tv_goal_usage"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/spacing_md"
+            android:layout_marginBottom="@dimen/spacing_md"
+            android:textAppearance="?attr/textAppearanceTitleLarge"
+            android:textColor="?attr/colorPrimary"
+            android:gravity="center_horizontal"
+            tools:text="Commitment: spend less than 2h a day." />
+
+        <!-- Today's Usage (kept in layout but hidden - do NOT show on this screen) -->
         <TextView
             android:id="@+id/tv_today_usage"
             android:layout_width="match_parent"
@@ -101,26 +128,6 @@
             android:textColor="?attr/colorOnSurfaceVariant"
             android:visibility="gone"
             tools:text="Today's usage so far: 1h 45m" />
-
-        <!-- Goal Usage -->
-        <TextView
-            android:id="@+id/tv_goal_usage"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/spacing_md"
-            android:textAppearance="?attr/textAppearanceTitleLarge"
-            android:textColor="?attr/colorPrimary"
-            tools:text="Commitment: spend less than 2h a day." />
-
-        <!-- Reduction Info -->
-        <TextView
-            android:id="@+id/tv_reduction_info"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/spacing_sm"
-            android:textAppearance="?attr/textAppearanceBodyLarge"
-            android:textColor="?attr/colorOnSurfaceVariant"
-            android:text="@string/goal_reduction_percentage" />
 
     </LinearLayout>
 

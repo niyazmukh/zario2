@@ -36,7 +36,6 @@ class UsageTimelineReconcilerTest {
         assertEquals(1, sessions.size)
         val session = sessions.single()
         assertEquals(1000, session.startMs)
-        // Should extend 30s beyond stop event (config.taskContinuityGap = 30s)
         assertEquals(35_000, session.endMs)
     }
 
@@ -59,9 +58,7 @@ class UsageTimelineReconcilerTest {
                 backingEvent = UsageEvent(8000, UsageEventType.MOVE_TO_BACKGROUND, "com.instagram.android")
             )
         )
-
         val sessions = reconciler.reconcile(events, start, 100_000)
-
         assertEquals(1, sessions.size)
         val session = sessions.single()
         assertEquals(1000, session.startMs)
@@ -92,7 +89,6 @@ class UsageTimelineReconcilerTest {
         assertEquals(1, sessions.size)
         val session = sessions.single()
         assertEquals(1000, session.startMs)
-        // Should extend 30s beyond screen off
         assertEquals(40_000, session.endMs)
     }
 
@@ -161,13 +157,6 @@ class UsageTimelineReconcilerTest {
         val session = sessions.single()
         assertEquals("com.test.app", session.packageName)
         assertEquals(start + 100, session.startMs)
-        // Should extend 30s beyond PAUSED event, but capped by MOVE_TO_BACKGROUND at start+500
-        // Actually, MOVE_TO_BACKGROUND has lower confidence, so HIGH confidence PAUSED wins
-        // Session extends from start+3000 by 30s = start+33000, but MOVE_TO_BACKGROUND doesn't close it
-        // Wait, I need to re-read this test - it's confusing
-        // The MOVE_TO_BACKGROUND at start+500 has MEDIUM confidence, but RESUMED has HIGH confidence
-        // So MOVE_TO_BACKGROUND won't close the session (confidence check prevents it)
-        // PAUSED at start+3000 has HIGH confidence and will close it
         assertEquals(start + 33_000, session.endMs)
     }
 
@@ -311,5 +300,92 @@ class UsageTimelineReconcilerTest {
         val session = sessions.single()
         assertEquals(200, session.startMs)
         assertEquals(2_000, session.endMs)
+    }
+
+    @org.junit.Test
+    fun `does not merge sessions separated by noticeable gap`() {
+        val start = 0L
+        val windowEnd = 20_000L
+        val events = listOf(
+            TrackedEvent.UsageStats(
+                epochMillis = 1_000,
+                confidence = EventConfidence.HIGH,
+                packageName = "com.example.app",
+                type = UsageEventType.MOVE_TO_FOREGROUND,
+                backingEvent = UsageEvent(1_000, UsageEventType.MOVE_TO_FOREGROUND, "com.example.app")
+            ),
+            TrackedEvent.UsageStats(
+                epochMillis = 5_000,
+                confidence = EventConfidence.HIGH,
+                packageName = "com.example.app",
+                type = UsageEventType.MOVE_TO_BACKGROUND,
+                backingEvent = UsageEvent(5_000, UsageEventType.MOVE_TO_BACKGROUND, "com.example.app")
+            ),
+            TrackedEvent.UsageStats(
+                epochMillis = 17_000,
+                confidence = EventConfidence.HIGH,
+                packageName = "com.example.app",
+                type = UsageEventType.MOVE_TO_FOREGROUND,
+                backingEvent = UsageEvent(17_000, UsageEventType.MOVE_TO_FOREGROUND, "com.example.app")
+            ),
+            TrackedEvent.UsageStats(
+                epochMillis = 21_500,
+                confidence = EventConfidence.HIGH,
+                packageName = "com.example.app",
+                type = UsageEventType.MOVE_TO_BACKGROUND,
+                backingEvent = UsageEvent(21_500, UsageEventType.MOVE_TO_BACKGROUND, "com.example.app")
+            )
+        )
+
+        val sessions = reconciler.reconcile(events, start, windowEnd)
+
+        assertEquals(2, sessions.size)
+        assertEquals(1_000, sessions[0].startMs)
+        assertEquals(5_000, sessions[0].endMs)
+        assertEquals(17_000, sessions[1].startMs)
+        assertEquals(21_500, sessions[1].endMs)
+    }
+
+    @org.junit.Test
+    fun `merges sessions split by small idle gap`() {
+        val start = 0L
+        val windowEnd = 15_000L
+        val events = listOf(
+            TrackedEvent.ActivityLifecycle(
+                epochMillis = 1_000,
+                confidence = EventConfidence.HIGH,
+                packageName = "com.example.smallgap",
+                activityClass = "MainActivity",
+                state = ActivityLifecycleState.RESUMED
+            ),
+            TrackedEvent.ActivityLifecycle(
+                epochMillis = 4_000,
+                confidence = EventConfidence.HIGH,
+                packageName = "com.example.smallgap",
+                activityClass = "MainActivity",
+                state = ActivityLifecycleState.STOPPED
+            ),
+            TrackedEvent.ActivityLifecycle(
+                epochMillis = 4_500,
+                confidence = EventConfidence.HIGH,
+                packageName = "com.example.smallgap",
+                activityClass = "MainActivity",
+                state = ActivityLifecycleState.RESUMED
+            ),
+            TrackedEvent.ActivityLifecycle(
+                epochMillis = 9_000,
+                confidence = EventConfidence.HIGH,
+                packageName = "com.example.smallgap",
+                activityClass = "MainActivity",
+                state = ActivityLifecycleState.STOPPED
+            )
+        )
+
+        val sessions = reconciler.reconcile(events, start, windowEnd)
+
+        assertEquals(1, sessions.size)
+        val session = sessions.single()
+        assertEquals(1_000, session.startMs)
+        assertEquals(9_000, session.endMs)
     }
 }

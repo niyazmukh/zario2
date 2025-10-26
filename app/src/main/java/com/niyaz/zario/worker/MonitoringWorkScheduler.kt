@@ -6,7 +6,7 @@ import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.OutOfQuotaPolicy
 import androidx.work.WorkManager
-import com.niyaz.zario.BuildConfig
+import com.niyaz.zario.BuildFlags
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -69,7 +69,7 @@ class MonitoringWorkScheduler @Inject constructor(
     }
 
     private fun logDebug(message: String) {
-        if (BuildConfig.DEBUG) {
+        if (BuildFlags.isDebug) {
             Log.d(TAG, message)
         }
     }

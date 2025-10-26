@@ -61,6 +61,7 @@ class ProfileViewModel @Inject constructor(
                     val daysSinceSignup = computeDaysSinceSignup(sortedEntries)
                     val cyclesMet = sortedEntries.count { it.metGoal }
                     val cyclesElapsed = sortedEntries.size
+                    val showPoints = user.condition != Condition.BENCHMARK
                     val cycles = sortedEntries.map { entry ->
                         val status = if (entry.metGoal) {
                             ProfileCycleStatus.MET
@@ -71,7 +72,7 @@ class ProfileViewModel @Inject constructor(
                             id = entry.id,
                             dateLabel = formatDate(entry.evaluationEndTime),
                             statusLabel = status,
-                            pointsAfter = entry.pointsBalanceAfter
+                            pointsAfter = entry.pointsBalanceAfter.takeIf { showPoints }
                         )
                     }
 
@@ -82,11 +83,12 @@ class ProfileViewModel @Inject constructor(
                             daysSinceSignup = daysSinceSignup,
                             cyclesMet = cyclesMet,
                             cyclesElapsed = cyclesElapsed,
-                            totalPoints = resolveTotalPoints(user, sortedEntries),
+                            totalPoints = resolveTotalPoints(user, sortedEntries).takeIf { showPoints },
                             cycles = cycles,
                             condition = user.condition,
                             flexibleReward = user.flexibleReward,
-                            flexiblePenalty = user.flexiblePenalty
+                            flexiblePenalty = user.flexiblePenalty,
+                            showPoints = showPoints
                         )
                     }
                 }
@@ -122,19 +124,20 @@ class ProfileViewModel @Inject constructor(
         val email: String = "",
         val daysSinceSignup: Int = 0,
         val cyclesMet: Int = 0,
-    val cyclesElapsed: Int = 0,
-        val totalPoints: Int = 0,
+        val cyclesElapsed: Int = 0,
+        val totalPoints: Int? = null,
         val cycles: List<ProfileCycleItem> = emptyList(),
         val condition: Condition? = null,
         val flexibleReward: Int? = null,
-        val flexiblePenalty: Int? = null
+        val flexiblePenalty: Int? = null,
+        val showPoints: Boolean = true
     )
 
     data class ProfileCycleItem(
         val id: Long,
         val dateLabel: String,
         val statusLabel: ProfileCycleStatus,
-        val pointsAfter: Int
+        val pointsAfter: Int?
     )
 
     enum class ProfileCycleStatus { MET, MISSED }

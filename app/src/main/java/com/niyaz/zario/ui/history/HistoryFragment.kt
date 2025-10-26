@@ -96,7 +96,8 @@ class HistoryFragment : Fragment() {
         hourlyUsageAdapter = HourlyUsageAdapter(
             maxBarHeightPx = maxBarHeight,
             minBarHeightPx = minBarHeight,
-            timeFormatter = { durationMs -> TimeUtils.formatTimeForDisplay(requireContext(), durationMs) }
+            timeFormatter = { durationMs -> TimeUtils.formatTimeForDisplay(requireContext(), durationMs) },
+            onHourSelected = { hour -> viewModel.toggleHourFilter(hour) }
         )
 
         binding.recyclerHourlyChart.apply {
@@ -146,6 +147,9 @@ class HistoryFragment : Fragment() {
 
             if (!isLoading) {
                 hourlyUsageAdapter.submitData(state.hourlyUsage, state.maxHourlyDurationMs)
+                hourlyUsageAdapter.setSelectedHour(state.selectedHour)
+            } else {
+                hourlyUsageAdapter.setSelectedHour(null)
             }
 
             recyclerHourlyChart.isVisible = !isLoading && !state.chartEmpty

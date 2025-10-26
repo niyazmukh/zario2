@@ -22,5 +22,5 @@ internal object FirestoreFields {
 }
 
 internal object FirestoreDefaults {
-    const val INITIAL_POINTS_BALANCE = 100
+    const val INITIAL_POINTS_BALANCE = 560
 }

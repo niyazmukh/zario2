@@ -2,6 +2,7 @@ package com.niyaz.zario.usage.tracking
 
 import com.niyaz.zario.usage.UsageAggregationConfig
 import com.niyaz.zario.usage.UsageEvent
+import com.niyaz.zario.usage.SuppressionRules
 import com.niyaz.zario.usage.ingest.TrackedEventSource
 import com.niyaz.zario.usage.ingest.model.EventConfidence
 import com.niyaz.zario.usage.ingest.model.ScreenStateEvent
@@ -20,22 +21,20 @@ class CompositeTrackedEventSource @Inject constructor(
 ) : TrackedEventSource {
 
     override suspend fun load(startMillis: Long, endMillis: Long): List<TrackedEvent> {
+        val suppression = SuppressionRules.fromConfig(config)
         val usage = usageEventSource.load(startMillis, endMillis).map(::fromUsage)
         val raw = rawEventDao.eventsBetween(startMillis, endMillis)
             .mapNotNull(::fromRaw)
-            .filter(::shouldIncludeEvent)
+            .filter { shouldIncludeEvent(it, suppression) }
         return (usage + raw).sortedBy { it.epochMillis }
     }
 
-    private fun shouldIncludeEvent(event: TrackedEvent): Boolean {
-        val suppressedPackages = config.suppressedTaskRootPackages
-        val suppressedClasses = config.suppressedTaskRootClassNames
-
+    private fun shouldIncludeEvent(event: TrackedEvent, suppression: SuppressionRules): Boolean {
         val packageName = when (event) {
             is TrackedEvent.ActivityLifecycle -> event.packageName
             else -> null
         }
-        if (packageName != null && packageName in suppressedPackages) {
+        if (suppression.isSuppressedPackage(packageName)) {
             return false
         }
 
@@ -43,7 +42,7 @@ class CompositeTrackedEventSource @Inject constructor(
             is TrackedEvent.ActivityLifecycle -> event.activityClass
             else -> null
         }
-        if (className != null && className in suppressedClasses) {
+        if (suppression.isSuppressedClass(className)) {
             return false
         }
 

@@ -18,14 +18,31 @@ class UsageAggregationStore(
     private val timelineReconciler: UsageTimelineReconciler,
     private val dao: UsageSessionDao,
     private val rawEventDao: UsageRawEventDao,
-    private val config: UsageAggregationConfig
+    private val config: UsageAggregationConfig,
+    private val telemetry: UsageIngestionTelemetry
 ) {
 
     suspend fun ingestWindow(windowStartMs: Long, windowEndMs: Long) = withContext(Dispatchers.IO) {
         if (windowStartMs >= windowEndMs) return@withContext
         val trackedEvents = trackedEventSource.load(windowStartMs, windowEndMs)
-        val sessions = timelineReconciler.reconcile(trackedEvents, windowStartMs, windowEndMs)
+        val reconciledSessions = timelineReconciler.reconcile(trackedEvents, windowStartMs, windowEndMs)
+        if (reconciledSessions.isEmpty()) return@withContext
+
+        val suppressionRules = SuppressionRules.fromConfig(config)
+        val navigationSanitization = sanitizeNavigationSessions(reconciledSessions, suppressionRules)
+        val sessions = navigationSanitization.sessions
         if (sessions.isEmpty()) return@withContext
+
+        if (navigationSanitization.reassignedDurationMs > 0L || navigationSanitization.droppedDurationMs > 0L) {
+            telemetry.onNavigationSanitization(
+                UsageIngestionTelemetry.NavigationSanitization(
+                    windowStartMs = windowStartMs,
+                    windowEndMs = windowEndMs,
+                    reassignedDurationMs = navigationSanitization.reassignedDurationMs,
+                    droppedDurationMs = navigationSanitization.droppedDurationMs
+                )
+            )
+        }
 
         val zoneId = config.zoneId
         val slices = sessions.flatMap { session ->
@@ -45,22 +62,27 @@ class UsageAggregationStore(
         }
 
         // Prevent historical re-ingestion from shrinking sessions that spill into other days.
-        val existingByKey = dao
-            .sessionsIntersecting(windowStartMs, windowEndMs)
-            .associateBy { sessionKey(it.packageName, it.startMs) }
-            .toMutableMap()
+        // Also deduplicate near-duplicate sessions by merging any existing session that
+        // overlaps or is contiguous for the same package. This prevents small timestamp
+        // jitter from creating separate persisted sessions and causing overcounting.
+        val existing = dao.sessionsIntersecting(windowStartMs, windowEndMs).toMutableList()
 
         val entitiesToPersist = mutableListOf<UsageSessionEntity>()
         for (entity in entities) {
-            val key = sessionKey(entity.packageName, entity.startMs)
-            val existing = existingByKey[key]
-            if (existing == null) {
+            // Find an existing session for the same package that overlaps or is contiguous
+            // within the merge gap (handled by mergePreservingTail semantics).
+            val matchIdx = existing.indexOfFirst { it.packageName == entity.packageName &&
+                !(it.endMs <= entity.startMs || it.startMs >= entity.endMs) }
+
+            if (matchIdx == -1) {
+                // No overlapping existing session; persist new
                 entitiesToPersist += entity
-                existingByKey[key] = entity
+                existing += entity
             } else {
-                mergePreservingTail(existing, entity)?.let { merged ->
+                val matched = existing[matchIdx]
+                mergePreservingTail(matched, entity)?.let { merged ->
                     entitiesToPersist += merged
-                    existingByKey[key] = merged
+                    existing[matchIdx] = merged
                 }
             }
         }
@@ -165,8 +187,8 @@ class UsageAggregationStore(
     companion object {
         private val ONE_DAY_MS: Long = Duration.ofDays(1).toMillis()
     }
-
     private fun sessionKey(packageName: String, startMs: Long): Pair<String, Long> = packageName to startMs
+
 
     // Split each session at local day boundaries so every cycle owns only its portion.
     private fun splitAcrossCycles(session: UsageSession, zoneId: ZoneId): List<SessionSlice> {
@@ -192,6 +214,67 @@ class UsageAggregationStore(
             segmentStart = segmentEnd
         }
         return slices
+    }
+
+    private data class NavigationSanitizerResult(
+        val sessions: List<UsageSession>,
+        val reassignedDurationMs: Long,
+        val droppedDurationMs: Long
+    )
+
+    private fun sanitizeNavigationSessions(
+        sessions: List<UsageSession>,
+        suppressionRules: SuppressionRules
+    ): NavigationSanitizerResult {
+        if (sessions.isEmpty()) {
+            return NavigationSanitizerResult(emptyList(), 0L, 0L)
+        }
+
+        val navigationPackages = suppressionRules.navigationPackages
+        if (navigationPackages.isEmpty()) {
+            return NavigationSanitizerResult(sessions.sortedBy { it.startMs }, 0L, 0L)
+        }
+
+        var dropped = 0L
+        val filtered = sessions
+            .sortedBy { it.startMs }
+            .filter { session ->
+                if (navigationPackages.contains(session.packageName)) {
+                    dropped += session.durationMs
+                    false
+                } else {
+                    true
+                }
+            }
+
+        val normalized = mergeSessionsByPackage(filtered)
+        return NavigationSanitizerResult(normalized, reassignedDurationMs = 0L, droppedDurationMs = dropped)
+    }
+
+    private fun mergeSessionsByPackage(
+        sessions: List<UsageSession>
+    ): List<UsageSession> {
+        if (sessions.isEmpty()) return sessions
+        val mergeGapMs = config.mergeGap.toMillis().coerceAtLeast(0L)
+        val ordered = sessions.sortedBy { it.startMs }
+        val merged = mutableListOf<UsageSession>()
+        for (session in ordered) {
+            if (merged.isEmpty()) {
+                merged += session
+                continue
+            }
+            val tail = merged.last()
+            if (tail.packageName == session.packageName && session.startMs - tail.endMs <= mergeGapMs) {
+                merged[merged.lastIndex] = tail.copy(
+                    startMs = minOf(tail.startMs, session.startMs),
+                    endMs = maxOf(tail.endMs, session.endMs),
+                    taskRootPackageName = tail.taskRootPackageName ?: session.taskRootPackageName
+                )
+            } else {
+                merged += session
+            }
+        }
+        return merged
     }
 
     private fun mergePreservingTail(

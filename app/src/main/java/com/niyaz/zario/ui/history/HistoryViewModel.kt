@@ -131,7 +131,13 @@ class HistoryViewModel @Inject constructor(
             currentSelection + packageName
         }
 
-        applySelection(updatedSelection)
+        applyFilters(updatedSelection, _uiState.value.selectedHour)
+    }
+
+    fun toggleHourFilter(hour: Int) {
+        val currentHour = _uiState.value.selectedHour
+        val newHour = if (currentHour == hour) null else hour
+        applyFilters(_uiState.value.selectedPackages, newHour)
     }
 
     fun resetFilters() {
@@ -202,45 +208,20 @@ class HistoryViewModel @Inject constructor(
                 baseAggregation
             }
 
-            val entries = canonicalTotals
-                .filterValues { it > zeroDurationThresholdMs }
-                .map { (packageName, duration) ->
-                    TodayUsageEntry(
-                        packageName = packageName,
-                        appLabel = resolveAppLabel(packageName),
-                        durationMs = duration
-                    )
-                }
-                .sortedByDescending { it.durationMs }
-
-            val validPackages = entries.map { it.packageName }.toSet()
-            val previousSelection = _uiState.value.selectedPackages
-            val validSelection = previousSelection.intersect(validPackages)
-
             latestBuckets = buckets
             latestAllAggregation = aggregation
-
-            val displayAggregation = if (validSelection.isNotEmpty()) {
-                aggregateUsage(buckets, zoneId, validSelection)
-            } else {
-                aggregation
-            }
-
-            val hasUsage = displayAggregation.hourlyBars.any { it.durationMs > 0L }
-            val isChartEmpty = !hasUsage
-            val maxDurationForChart = if (hasUsage) MAX_BAR_DURATION_MS else 0L
 
             _uiState.update { current ->
                 current.copy(
                     isLoading = false,
-                    hourlyUsage = displayAggregation.hourlyBars,
-                    entries = entries,
-                    chartEmpty = isChartEmpty,
-                    maxHourlyDurationMs = maxDurationForChart,
-                    selectedPackages = validSelection,
-                    totalUsageMs = canonicalTotals.values.sum()
+                    dateRange = range,
+                    dateLabel = formatDateRange(range),
+                    totalUsageMs = canonicalTotals.values.sum(),
+                    selectedHour = null
                 )
             }
+
+            applyFilters(_uiState.value.selectedPackages, null)
         }.onFailure { error ->
             Log.e(TAG, "Failed to load usage for range", error)
             latestBuckets = emptyList()
@@ -253,6 +234,7 @@ class HistoryViewModel @Inject constructor(
                     chartEmpty = true,
                     maxHourlyDurationMs = 0L,
                     selectedPackages = emptySet(),
+                    selectedHour = null,
                     totalUsageMs = 0L
                 )
             }
@@ -309,6 +291,7 @@ class HistoryViewModel @Inject constructor(
             chartEmpty = true,
             maxHourlyDurationMs = 0L,
             selectedPackages = emptySet(),
+            selectedHour = null,
             totalUsageMs = 0L
         )
     }
@@ -326,6 +309,24 @@ class HistoryViewModel @Inject constructor(
                 range.end.format(dateFormatter)
             )
         }
+    }
+
+    private fun packageTotalsForHour(hour: Int): Map<String, Long> {
+        if (latestBuckets.isEmpty()) return emptyMap()
+        val totals = mutableMapOf<String, Long>()
+        latestBuckets.forEach { bucket ->
+            val bucketHour = Instant.ofEpochMilli(bucket.bucketStartMs)
+                .atZone(zoneId)
+                .hour
+            if (bucketHour == hour) {
+                bucket.totalsByPackage.forEach { (packageName, duration) ->
+                    if (duration > 0L) {
+                        totals[packageName] = totals.getOrDefault(packageName, 0L) + duration
+                    }
+                }
+            }
+        }
+        return totals
     }
 
     private fun resolveAppLabel(packageName: String): String {
@@ -355,23 +356,51 @@ class HistoryViewModel @Inject constructor(
     private fun emptyHourlyBars(): List<HourlyUsageBar> =
         List(HOURS_PER_DAY) { hour -> HourlyUsageBar(hour = hour, durationMs = 0L) }
 
-    private fun applySelection(selected: Set<String>) {
-        val aggregation = if (selected.isNotEmpty()) {
-            aggregateUsage(latestBuckets, zoneId, selected)
+    private fun applyFilters(selectedPackages: Set<String>, selectedHour: Int?) {
+        val baseTotals = if (selectedHour != null) {
+            packageTotalsForHour(selectedHour)
+        } else {
+            latestAllAggregation.packageTotals
+        }
+
+        val validPackageNames = baseTotals.keys
+
+        val sanitizedSelection = selectedPackages.intersect(validPackageNames)
+
+        val filteredTotals = if (sanitizedSelection.isNotEmpty()) {
+            baseTotals.filterKeys { sanitizedSelection.contains(it) }
+        } else {
+            baseTotals
+        }
+        val entries = filteredTotals
+            .filterValues { it > zeroDurationThresholdMs }
+            .map { (packageName, duration) ->
+                TodayUsageEntry(
+                    packageName = packageName,
+                    appLabel = resolveAppLabel(packageName),
+                    durationMs = duration
+                )
+            }
+            .sortedByDescending { it.durationMs }
+
+        val aggregationForChart = if (sanitizedSelection.isNotEmpty()) {
+            aggregateUsage(latestBuckets, zoneId, sanitizedSelection)
         } else {
             latestAllAggregation
         }
 
-        val hasUsage = aggregation.hourlyBars.any { it.durationMs > 0L }
+        val hasUsage = aggregationForChart.hourlyBars.any { it.durationMs > 0L }
         val isChartEmpty = !hasUsage
         val maxDurationForChart = if (hasUsage) MAX_BAR_DURATION_MS else 0L
 
         _uiState.update { current ->
             current.copy(
-                selectedPackages = selected,
-                hourlyUsage = aggregation.hourlyBars,
+                entries = entries,
+                hourlyUsage = aggregationForChart.hourlyBars,
                 chartEmpty = isChartEmpty,
-                maxHourlyDurationMs = maxDurationForChart
+                maxHourlyDurationMs = maxDurationForChart,
+                selectedPackages = sanitizedSelection,
+                selectedHour = selectedHour
             )
         }
     }
@@ -411,6 +440,7 @@ class HistoryViewModel @Inject constructor(
         val chartEmpty: Boolean,
         val maxHourlyDurationMs: Long,
         val selectedPackages: Set<String>,
+        val selectedHour: Int?,
         val totalUsageMs: Long
     )
 
@@ -426,7 +456,6 @@ class HistoryViewModel @Inject constructor(
             val hourlyBars: List<HourlyUsageBar>,
             val packageTotals: Map<String, Long>
         )
-
         internal fun aggregateUsage(
             buckets: List<UsageBucket>,
             zoneId: ZoneId,
@@ -435,7 +464,6 @@ class HistoryViewModel @Inject constructor(
             val hourTotals = LongArray(HOURS_PER_DAY)
             val packageTotals = mutableMapOf<String, Long>()
             val effectiveFilter = packageFilter?.takeIf { it.isNotEmpty() }
-
             buckets.forEach { bucket ->
                 val hourOfDay = Instant.ofEpochMilli(bucket.bucketStartMs)
                     .atZone(zoneId)
@@ -451,15 +479,13 @@ class HistoryViewModel @Inject constructor(
                     hourTotals[hourOfDay] += bucketTotal
                 }
             }
-
             val hourlyBars = List(HOURS_PER_DAY) { hour ->
                 HourlyUsageBar(hour = hour, durationMs = hourTotals[hour])
             }
-
             return UsageAggregation(
                 hourlyBars = hourlyBars,
                 packageTotals = packageTotals
             )
         }
     }
-}
+    }

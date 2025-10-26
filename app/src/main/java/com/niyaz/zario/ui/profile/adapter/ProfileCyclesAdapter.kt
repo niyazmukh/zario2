@@ -3,6 +3,7 @@ package com.niyaz.zario.ui.profile.adapter
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.core.content.ContextCompat
+import androidx.core.view.isVisible
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
@@ -31,10 +32,15 @@ class ProfileCyclesAdapter :
         fun bind(item: ProfileViewModel.ProfileCycleItem) {
             val context = binding.root.context
             binding.tvCycleDate.text = item.dateLabel
-            binding.tvCyclePoints.text = context.getString(
-                R.string.profile_cycle_points_format,
-                numberFormatter.format(item.pointsAfter)
-            )
+            val pointsText = item.pointsAfter?.let(numberFormatter::format)
+            val showPoints = pointsText != null
+            binding.tvCyclePoints.isVisible = showPoints
+            if (showPoints) {
+                binding.tvCyclePoints.text = context.getString(
+                    R.string.profile_cycle_points_format,
+                    pointsText
+                )
+            }
             val statusText = when (item.statusLabel) {
                 ProfileViewModel.ProfileCycleStatus.MET -> context.getString(R.string.profile_cycle_status_met)
                 ProfileViewModel.ProfileCycleStatus.MISSED -> context.getString(R.string.profile_cycle_status_missed)
@@ -47,12 +53,20 @@ class ProfileCyclesAdapter :
             }
             binding.tvCycleStatus.text = statusText
             binding.tvCycleStatus.setTextColor(statusColor)
-            binding.root.contentDescription = context.getString(
-                R.string.profile_cycle_item_content_description,
-                item.dateLabel,
-                statusText,
-                binding.tvCyclePoints.text
-            )
+            binding.root.contentDescription = if (showPoints) {
+                context.getString(
+                    R.string.profile_cycle_item_content_description,
+                    item.dateLabel,
+                    statusText,
+                    pointsText
+                )
+            } else {
+                context.getString(
+                    R.string.profile_cycle_item_content_description_no_points,
+                    item.dateLabel,
+                    statusText
+                )
+            }
         }
     }
 

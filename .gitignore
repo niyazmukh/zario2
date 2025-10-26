@@ -76,6 +76,7 @@ docs/
 .docs/
 .scripts/
 scripts/
+temp/
 
 # MD reports and summaries
 *report*.md
@@ -112,3 +113,19 @@ coverage/
 
 
 zariodecomp/
+
+# Local bundles/backups
+# Ignore any repo bundles or other local bundle artifacts
+*.bundle
+zario_repo.bundle
+
+# Python virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Kotlin build/caches
+.kotlin/
+.kotlinc/
+*.kotlin_module

@@ -14,6 +14,7 @@ object PointsCalculator {
         return when (condition) {
             Condition.CONTROL -> if (metGoal) Constants.CONTROL_REWARD else -Constants.CONTROL_PENALTY
             Condition.DEPOSIT -> if (metGoal) Constants.DEPOSIT_REWARD else -Constants.DEPOSIT_PENALTY
+            Condition.BENCHMARK -> 0
             Condition.FLEXIBLE -> {
                 val reward = flexibleReward ?: Constants.FLEXIBLE_REWARD
                 val penalty = flexiblePenalty ?: Constants.FLEXIBLE_PENALTY

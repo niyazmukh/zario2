@@ -12,17 +12,27 @@ import kotlin.math.max
 class HourlyUsageAdapter(
     private val maxBarHeightPx: Int,
     private val minBarHeightPx: Int,
-    private val timeFormatter: (Long) -> String
+    private val timeFormatter: (Long) -> String,
+    private val onHourSelected: (Int) -> Unit
 ) : RecyclerView.Adapter<HourlyUsageAdapter.HourViewHolder>() {
 
     private val bars = mutableListOf<HistoryViewModel.HourlyUsageBar>()
     private var maxDurationMs: Long = 0L
+    private var selectedHour: Int? = null
 
     fun submitData(newBars: List<HistoryViewModel.HourlyUsageBar>, maxDurationMs: Long) {
         bars.clear()
         bars.addAll(newBars)
         this.maxDurationMs = maxDurationMs
         notifyDataSetChanged()
+    }
+
+    fun setSelectedHour(hour: Int?) {
+        if (selectedHour == hour) return
+        val previous = selectedHour
+        selectedHour = hour
+        previous?.let { notifyItemChangedByHour(it) }
+        selectedHour?.let { notifyItemChangedByHour(it) }
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): HourViewHolder {
@@ -37,9 +47,26 @@ class HourlyUsageAdapter(
 
     override fun getItemCount(): Int = bars.size
 
+    private fun notifyItemChangedByHour(hour: Int) {
+        val index = bars.indexOfFirst { it.hour == hour }
+        if (index != -1) {
+            notifyItemChanged(index)
+        }
+    }
+
     inner class HourViewHolder(
         private val binding: ItemHourlyUsageBinding
     ) : RecyclerView.ViewHolder(binding.root) {
+
+        init {
+            binding.barContainer.setOnClickListener {
+                val position = adapterPosition
+                if (position != RecyclerView.NO_POSITION) {
+                    val hour = bars.getOrNull(position)?.hour ?: return@setOnClickListener
+                    onHourSelected(hour)
+                }
+            }
+        }
 
         fun bind(bar: HistoryViewModel.HourlyUsageBar, maxDurationMs: Long) {
             val hasUsage = bar.durationMs > 0L
@@ -60,7 +87,14 @@ class HourlyUsageAdapter(
             binding.viewBar.layoutParams = binding.viewBar.layoutParams.apply {
                 height = targetHeight
             }
-            binding.viewBar.alpha = if (hasUsage) 1f else 0.25f
+            val isSelected = selectedHour == bar.hour
+            binding.viewBar.alpha = when {
+                !hasUsage -> 0.25f
+                isSelected -> 1f
+                else -> 0.6f
+            }
+            binding.tvHour.alpha = if (isSelected) 1f else 0.7f
+            binding.tvDuration.alpha = if (isSelected) 1f else 0.7f
 
             val hourLabel = String.format(Locale.getDefault(), "%02d", bar.hour)
             binding.tvHour.text = hourLabel

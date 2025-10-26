@@ -4,7 +4,7 @@ import android.content.Context
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.niyaz.zario.BuildConfig
+import com.niyaz.zario.BuildFlags
 import com.niyaz.zario.Constants
 import com.niyaz.zario.R
 import com.niyaz.zario.data.EvaluationProgress
@@ -135,7 +135,7 @@ class InterventionViewModel @Inject constructor(
     }
 
     private fun startUsageMonitoring(initialDelayMs: Long = 0L) {
-        if (BuildConfig.DEBUG) {
+        if (BuildFlags.isDebug) {
             Log.d(TAG, "Starting usage monitoring worker (delay=${initialDelayMs}ms)")
         }
 

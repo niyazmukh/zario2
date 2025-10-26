@@ -39,11 +39,13 @@ open class UsageEventLoader(
         var emittedEvents = 0
         val suppressedPackageCounts = mutableMapOf<String, Int>()
         val suppressedClassCounts = mutableMapOf<String, Int>()
+        val navigationPackageCounts = mutableMapOf<String, Int>()
         
         // Enhanced telemetry tracking
         val droppedEvents = mutableListOf<UsageIngestionTelemetry.DroppedEvent>()
         val packageEventCounts = mutableMapOf<String, MutableMap<String, Int>>() // pkg -> (reason -> count)
         val packageEmittedCounts = mutableMapOf<String, Int>()
+        val suppressionRules = SuppressionRules.fromConfig(config)
 
         while (cursor < endMillis) {
             sliceCount += 1
@@ -93,16 +95,66 @@ open class UsageEventLoader(
                     continue
                 }
 
+                val isNavigationPackage = suppressionRules.isNavigationPackage(pkg)
+                val isNavigationClass = suppressionRules.isNavigationClass(taskRootClass)
+                if (isNavigationPackage) {
+                    // Events from known navigation/system packages should only be kept if we can
+                    // confidently attribute them to a non-navigation task root different from the pkg.
+                    val canReattributeNavigation = taskRootPackage != null &&
+                        !suppressionRules.isNavigationPackage(taskRootPackage) &&
+                        taskRootPackage != pkg
+                    if (!canReattributeNavigation) {
+                        val navigationKey = pkg ?: taskRootPackage ?: "navigation"
+                        navigationPackageCounts.merge(navigationKey, 1, Int::plus)
+                        droppedEvents += UsageIngestionTelemetry.DroppedEvent(
+                            timestampMs = reusableEvent.timeStamp,
+                            packageName = pkg,
+                            eventType = rawType,
+                            taskRootPackageName = taskRootPackage,
+                            taskRootClassName = taskRootClass,
+                            dropReason = UsageIngestionTelemetry.DropReason.NAVIGATION_PACKAGE,
+                            instanceId = instanceId
+                        )
+                        trackPackageDrop(packageEventCounts, navigationKey, "NAVIGATION_PACKAGE")
+                        continue
+                    }
+                } else if (isNavigationClass) {
+                    // Some OEMs report navigation class names as task roots even while the app
+                    // itself remains the task root package (e.g., quick switch/overview overlays).
+                    // Do not drop such events if the task root package equals the app package.
+                    val taskRootIsNavigation = suppressionRules.isNavigationPackage(taskRootPackage)
+                    val rootEqualsPkg = taskRootPackage != null && taskRootPackage == pkg
+                    val shouldDrop = (taskRootPackage == null) || (taskRootIsNavigation && !rootEqualsPkg)
+                    if (shouldDrop) {
+                        val navigationKey = pkg ?: taskRootPackage ?: "navigation"
+                        navigationPackageCounts.merge(navigationKey, 1, Int::plus)
+                        droppedEvents += UsageIngestionTelemetry.DroppedEvent(
+                            timestampMs = reusableEvent.timeStamp,
+                            packageName = pkg,
+                            eventType = rawType,
+                            taskRootPackageName = taskRootPackage,
+                            taskRootClassName = taskRootClass,
+                            dropReason = UsageIngestionTelemetry.DropReason.NAVIGATION_PACKAGE,
+                            instanceId = instanceId
+                        )
+                        trackPackageDrop(packageEventCounts, navigationKey, "NAVIGATION_PACKAGE")
+                        continue
+                    }
+                }
+
                 // Hybrid filtering + Attribution logic:
                 // 1. For suppressed taskRoots (launcher, system UI): drop only if pkg == taskRoot
-                // 2. For non-suppressed taskRoots: use taskRoot for attribution (matches Digital Wellbeing)
-                // This fixes mis-attribution bugs where Play Store in game task was tracked as Play Store usage
+                // 2. For configured host packages, attribute to the task root package
                 val taskRootInSuppressedPackages = taskRootPackage != null &&
-                    taskRootPackage in config.suppressedTaskRootPackages
+                    suppressionRules.isSuppressedPackage(taskRootPackage)
                 val suppressedByPackage = taskRootInSuppressedPackages && pkg == taskRootPackage
                 
-                val suppressedByClass = !suppressedByPackage && taskRootClass != null &&
-                    taskRootClass in config.suppressedTaskRootClassNames
+                val suppressedClassRaw = taskRootClass != null &&
+                    suppressionRules.isSuppressedClass(taskRootClass)
+                val navigationClassOwnedByPackage = suppressedClassRaw && isNavigationClass &&
+                    taskRootPackage != null && taskRootPackage == pkg &&
+                    !suppressionRules.isNavigationPackage(pkg)
+                val suppressedByClass = !suppressedByPackage && suppressedClassRaw && !navigationClassOwnedByPackage
                     
                 if (suppressedByPackage || suppressedByClass) {
                     if (suppressedByPackage) {
@@ -137,13 +189,14 @@ open class UsageEventLoader(
                 val type = UsageEventType.fromRaw(rawType)
                 if (type == UsageEventType.UNKNOWN) continue
 
-                // Attribution logic: Use taskRoot for non-suppressed taskRoots (matches Digital Wellbeing)
-                // This ensures Play Store time in game task is attributed to the game, not Play Store
-                val attributionPackage = if (taskRootPackage != null && 
-                                            taskRootPackage !in config.suppressedTaskRootPackages) {
-                    taskRootPackage  // Attribute to taskRoot (e.g., game gets Play Store time in its task)
-                } else {
-                    pkg  // Use actual package for suppressed/null taskRoots
+                val attributionPackage = when {
+                    taskRootPackage == null -> pkg
+                    taskRootPackage == pkg -> pkg
+                    pkg in config.hostPackagesForAttribution && !suppressionRules.isSuppressedPackage(taskRootPackage) ->
+                        taskRootPackage
+                    suppressionRules.isSuppressedPackage(pkg) && !suppressionRules.isSuppressedPackage(taskRootPackage) ->
+                        taskRootPackage
+                    else -> pkg
                 }
 
                     results += UsageEvent(
@@ -192,6 +245,10 @@ open class UsageEventLoader(
                     .associate { it.key to it.value },
                 nullPackageDrops = nullPackageDrops,
                 unknownTypeDrops = unknownTypeDrops,
+                navigationPackageDrops = navigationPackageCounts
+                    .entries
+                    .sortedByDescending { it.value }
+                    .associate { it.key to it.value },
                 droppedEvents = droppedEvents,
                 perPackageStats = perPackageStats
             )
@@ -224,6 +281,7 @@ open class UsageEventLoader(
                     "UNKNOWN_TYPE" -> UsageIngestionTelemetry.DropReason.UNKNOWN_TYPE
                     "SUPPRESSED_TASK_ROOT_PACKAGE" -> UsageIngestionTelemetry.DropReason.SUPPRESSED_TASK_ROOT_PACKAGE
                     "SUPPRESSED_TASK_ROOT_CLASS" -> UsageIngestionTelemetry.DropReason.SUPPRESSED_TASK_ROOT_CLASS
+                    "NAVIGATION_PACKAGE" -> UsageIngestionTelemetry.DropReason.NAVIGATION_PACKAGE
                     else -> UsageIngestionTelemetry.DropReason.NOT_TRACKED_TYPE
                 }
             }

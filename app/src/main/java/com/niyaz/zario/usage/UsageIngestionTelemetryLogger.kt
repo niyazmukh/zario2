@@ -1,7 +1,7 @@
 package com.niyaz.zario.usage
 
 import android.util.Log
-import com.niyaz.zario.BuildConfig
+import com.niyaz.zario.BuildFlags
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -21,6 +21,16 @@ class UsageIngestionTelemetryLogger @Inject constructor() : UsageIngestionTeleme
         logDetailedDrops(result)
     }
 
+    override fun onNavigationSanitization(stats: UsageIngestionTelemetry.NavigationSanitization) {
+        if (!shouldLogVerbose()) return
+        val message = buildString {
+            append("=== NAVIGATION SANITIZATION ===\n")
+            append("Window: [${formatTime(stats.windowStartMs)} - ${formatTime(stats.windowEndMs)}]\n")
+            append("Reassigned: ${stats.reassignedDurationMs}ms, Dropped: ${stats.droppedDurationMs}ms\n")
+        }
+        Log.i(TAG, message)
+    }
+
     private fun logSummary(result: UsageIngestionTelemetry.Result) {
         val message = buildString {
             append("=== USAGE INGESTION SUMMARY (Hybrid Filtering) ===\n")
@@ -38,6 +48,15 @@ class UsageIngestionTelemetryLogger @Inject constructor() : UsageIngestionTeleme
             append("Unknown Type Drops: ${result.unknownTypeDrops}\n")
             append("Suppressed Packages: ${result.suppressedTaskRootPackages.size} types\n")
             append("Suppressed Classes: ${result.suppressedTaskRootClassNames.size} types\n")
+            if (result.navigationPackageDrops.isNotEmpty()) {
+                val totalNavDrops = result.navigationPackageDrops.values.sum()
+                append("Navigation Packages Dropped: ${result.navigationPackageDrops.size} types ($totalNavDrops events)\n")
+            } else {
+                append("Navigation Packages Dropped: 0 types\n")
+            }
+            if (result.navigationDurationReassignedMs > 0L || result.navigationDurationDroppedMs > 0L) {
+                append("Navigation Duration → reassigned=${result.navigationDurationReassignedMs}ms, dropped=${result.navigationDurationDroppedMs}ms\n")
+            }
             append("Note: Apps USING system components are now tracked (hybrid filtering active)\n")
         }
         Log.i(TAG, message)
@@ -140,7 +159,7 @@ class UsageIngestionTelemetryLogger @Inject constructor() : UsageIngestionTeleme
     }
 
     private fun shouldLogVerbose(): Boolean =
-        BuildConfig.DEBUG || Log.isLoggable(TAG, Log.INFO)
+        BuildFlags.isDebug || Log.isLoggable(TAG, Log.INFO)
 
     private companion object {
         const val TAG = "UsageIngestionTelemetry"

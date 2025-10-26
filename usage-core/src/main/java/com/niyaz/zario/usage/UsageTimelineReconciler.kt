@@ -36,7 +36,6 @@ class UsageTimelineReconciler(
                 }
             }
         }
-
         // Treat any still-open session as running through the end of the window we just processed.
         // This avoids under-counting long-lived sessions (e.g., video playback) that emit sparse
         // foreground events but remain active until an explicit close event arrives later.
@@ -64,6 +63,7 @@ class UsageTimelineReconciler(
                 // finish other open sessions at the same timestamp
                 sessions += open.finishAllExcept(event.packageName, event.epochMillis, event.confidence)
             }
+
             ActivityLifecycleState.PAUSED -> open.touch(event.packageName, event.epochMillis, event.confidence)
             ActivityLifecycleState.STOPPED,
             ActivityLifecycleState.DESTROYED -> open.finishIfAllowed(
@@ -101,7 +101,6 @@ class UsageTimelineReconciler(
             )?.let(sessions::add)
         }
     }
-
     private fun handleScreen(
         event: TrackedEvent.ScreenState,
         open: MutableMap<String, SessionAccumulator>,
@@ -191,6 +190,7 @@ class UsageTimelineReconciler(
                 entry.setValue(accumulator.withTouch(timestamp, confidence))
                 continue
             }
+
             finished += accumulator.withCloseBoundary(timestamp).finish(timestamp, taskContinuityGapMs)
             iterator.remove()
         }
@@ -227,6 +227,7 @@ class UsageTimelineReconciler(
         val lastEventMs: Long,
         val confidence: EventConfidence,
         val taskRootPackageName: String?
+
     ) {
         fun withForegroundEvent(timestamp: Long, newConfidence: EventConfidence, taskRoot: String?): SessionAccumulator {
             val updatedConfidence = if (newConfidence.ordinal < confidence.ordinal) newConfidence else confidence
@@ -238,6 +239,7 @@ class UsageTimelineReconciler(
                 lastEventMs = updatedLastEvent,
                 confidence = updatedConfidence,
                 taskRootPackageName = updatedTaskRoot
+
             )
         }
 

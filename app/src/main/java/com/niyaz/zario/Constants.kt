@@ -33,18 +33,32 @@ object Constants {
 	const val WORKER_CRITICAL_INTERVAL_SECONDS = 100L // 1.6 minutes
 	const val WORKER_NIGHT_INTERVAL_SECONDS = 1_800L  // 30 minutes
 
-	// Usage progress thresholds
-	const val PROGRESS_MAX_PERCENTAGE = 100f
-	const val USAGE_ON_TRACK_THRESHOLD = 110f
+		// Usage progress thresholds
+		const val PROGRESS_MAX_PERCENTAGE = 100f
 
 	// Analysis windows
 	const val USAGE_ANALYSIS_DAYS = 7
 
 	// Points & incentives
-	const val CONTROL_REWARD = 20
-	const val CONTROL_PENALTY = 10
-	const val DEPOSIT_REWARD = 30
-	const val DEPOSIT_PENALTY = 30
+	// const val CONTROL_REWARD = 20
+	// const val CONTROL_PENALTY = 10
+	// const val DEPOSIT_REWARD = 30
+	// const val DEPOSIT_PENALTY = 30
+	// const val FLEXIBLE_REWARD = 5
+	// const val FLEXIBLE_PENALTY = 20
+	// const val FLEXIBLE_REWARD_MIN = 0
+	// const val FLEXIBLE_REWARD_MAX = 10
+	// const val FLEXIBLE_PENALTY_MIN = 0
+	// const val FLEXIBLE_PENALTY_MAX = 40
+	// const val MAX_POINTS = 10_000
+
+	// Points & incentives
+	const val CONTROL_REWARD = 10
+	const val CONTROL_PENALTY = 0
+	const val DEPOSIT_REWARD = 10
+	const val DEPOSIT_PENALTY = 40
+	const val BENCHMARK_REWARD = 0
+	const val BENCHMARK_PENALTY = 0
 	const val FLEXIBLE_REWARD = 5
 	const val FLEXIBLE_PENALTY = 20
 	const val FLEXIBLE_REWARD_MIN = 0

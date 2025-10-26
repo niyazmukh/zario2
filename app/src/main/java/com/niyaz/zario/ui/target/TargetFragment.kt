@@ -7,6 +7,7 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.animation.AccelerateDecelerateInterpolator
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
@@ -15,9 +16,9 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import com.niyaz.zario.Constants
 import com.niyaz.zario.R
+import com.niyaz.zario.core.evaluation.EvaluationRepository
 import com.niyaz.zario.databinding.FragmentTargetBinding
 import com.niyaz.zario.permissions.PermissionsManager
-import com.niyaz.zario.core.evaluation.EvaluationRepository
 import com.niyaz.zario.utils.TimeUtils
 import com.niyaz.zario.utils.navigateSafely
 import com.niyaz.zario.worker.MonitoringWorkScheduler
@@ -37,6 +38,8 @@ class TargetFragment : Fragment() {
 
     private var _binding: FragmentTargetBinding? = null
     private val binding get() = _binding!!
+    private val fadeInterpolator = AccelerateDecelerateInterpolator()
+    private val pendingFadeEntries = mutableListOf<FadeEntry>()
 
     private val viewModel: TargetViewModel by viewModels()
 
@@ -111,6 +114,7 @@ class TargetFragment : Fragment() {
     }
 
     private fun showLoading() {
+        cancelSummaryFadeAnimation()
         binding.apply {
             progressBar.visibility = View.VISIBLE
             textViewLoading.visibility = View.VISIBLE
@@ -129,6 +133,7 @@ class TargetFragment : Fragment() {
         isEstimated: Boolean
     ) {
         binding.apply {
+            cancelSummaryFadeAnimation()
             progressBar.visibility = View.GONE
             textViewLoading.visibility = View.GONE
             textViewError.visibility = View.GONE
@@ -141,28 +146,27 @@ class TargetFragment : Fragment() {
             val goalFormatted = TimeUtils.formatTimeForGoal(requireContext(), recommendedGoalMs)
             val reductionPct = ((1 - Constants.GOAL_REDUCTION_RATIO) * 100).roundToInt()
 
+            // Populate texts (do NOT show today's usage on this screen)
             tvCurrentUsage.text = getString(R.string.goal_summary_usage, averageFormatted)
             tvGoalUsage.text = getString(R.string.goal_summary_target, goalFormatted)
-            
-            if (todayUsageMs > 0L) {
-                tvTodayUsage.visibility = View.VISIBLE
-                val todayFormatted = TimeUtils.formatTimeForGoal(requireContext(), todayUsageMs)
-                tvTodayUsage.text = getString(R.string.goal_summary_today_usage, todayFormatted)
-            } else {
-                tvTodayUsage.visibility = View.GONE
-            }
-            
+
+            // Ensure today's usage is not shown according to requirement #1
+            tvTodayUsage.visibility = View.GONE
+
             tvReductionInfo.text = if (isEstimated) {
                 getString(R.string.goal_summary_estimated_usage)
             } else {
                 getString(R.string.goal_reduction_percentage, reductionPct)
             }
 
+            startSequentialFadeIn()
+
             updateConfirmButton(enabled = true)
         }
     }
 
     private fun showPermissionRequired() {
+        cancelSummaryFadeAnimation()
         binding.apply {
             progressBar.visibility = View.GONE
             textViewLoading.visibility = View.GONE
@@ -176,6 +180,7 @@ class TargetFragment : Fragment() {
     }
 
     private fun showError(message: String) {
+        cancelSummaryFadeAnimation()
         binding.apply {
             progressBar.visibility = View.GONE
             textViewLoading.visibility = View.GONE
@@ -225,8 +230,49 @@ class TargetFragment : Fragment() {
         }
     }
 
+    private fun startSequentialFadeIn() = binding.apply {
+        cancelSummaryFadeAnimation()
+
+        val fadeViews = listOf(tvCurrentUsage, tvReductionInfo, tvGoalUsage)
+        fadeViews.forEach { view ->
+            view.visibility = View.VISIBLE
+            view.animate().cancel()
+            view.alpha = 0f
+        }
+
+        fadeViews.forEachIndexed { index, view ->
+            val runnable = Runnable {
+                view.animate()
+                    .alpha(1f)
+                    .setDuration(SUMMARY_FADE_DURATION)
+                    .setInterpolator(fadeInterpolator)
+                    .withLayer()
+                    .start()
+            }
+            pendingFadeEntries += FadeEntry(view, runnable)
+            view.postDelayed(runnable, SUMMARY_FADE_INITIAL_DELAY + index * SUMMARY_FADE_STAGGER)
+        }
+    }
+
+    private fun cancelSummaryFadeAnimation() {
+        pendingFadeEntries.forEach { entry ->
+            entry.view.removeCallbacks(entry.runnable)
+            entry.view.animate().cancel()
+        }
+        pendingFadeEntries.clear()
+    }
+
     override fun onDestroyView() {
         super.onDestroyView()
+        cancelSummaryFadeAnimation()
         _binding = null
+    }
+
+    private data class FadeEntry(val view: View, val runnable: Runnable)
+
+    private companion object {
+        const val SUMMARY_FADE_DURATION = 2000L
+        const val SUMMARY_FADE_STAGGER = 2000L
+        const val SUMMARY_FADE_INITIAL_DELAY = 1000L
     }
 }

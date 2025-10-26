@@ -18,6 +18,9 @@ interface UsageIngestionTelemetry {
         val suppressedTaskRootClassNames: Map<String, Int>,
         val nullPackageDrops: Int,
         val unknownTypeDrops: Int,
+        val navigationPackageDrops: Map<String, Int> = emptyMap(),
+        val navigationDurationReassignedMs: Long = 0L,
+        val navigationDurationDroppedMs: Long = 0L,
         val droppedEvents: List<DroppedEvent> = emptyList(),
         val perPackageStats: Map<String, PackageDropStats> = emptyMap()
     )
@@ -49,15 +52,26 @@ interface UsageIngestionTelemetry {
             get() = if (totalEvents > 0) droppedEvents.toDouble() / totalEvents else 0.0
     }
 
+    data class NavigationSanitization(
+        val windowStartMs: Long,
+        val windowEndMs: Long,
+        val reassignedDurationMs: Long,
+        val droppedDurationMs: Long
+    )
+
+    fun onNavigationSanitization(stats: NavigationSanitization) = Unit
+
     enum class DropReason {
         NULL_PACKAGE,
         UNKNOWN_TYPE,
         SUPPRESSED_TASK_ROOT_PACKAGE,
         SUPPRESSED_TASK_ROOT_CLASS,
+        NAVIGATION_PACKAGE,
         NOT_TRACKED_TYPE
     }
 
     object NO_OP : UsageIngestionTelemetry {
         override fun onIngestionResult(result: Result) = Unit
+        override fun onNavigationSanitization(stats: NavigationSanitization) = Unit
     }
 }

@@ -121,6 +121,160 @@ class UsageEventLoaderTest {
         verify(exactly = 0) { usageStatsManager.queryEvents(any<Long>(), any()) }
     }
 
+    @Test
+    fun `load drops navigation packages when no task root available`() {
+        val usageStatsManager: UsageStatsManager = mockk(relaxed = true)
+        val telemetry = RecordingTelemetry()
+        every { usageStatsManager.queryEvents(any<Long>(), any()) } answers {
+            usageEventsOf(
+                createEvent(
+                    timestamp = 1_000L,
+                    type = UsageEventType.MOVE_TO_FOREGROUND,
+                    packageName = "com.android.launcher3",
+                    taskRootPackage = null,
+                    taskRootClass = null
+                )
+            )
+        }
+
+        val loader = UsageEventLoader(
+            usageStatsManager,
+            UsageAggregationConfig(
+                navigationPackages = setOf("com.android.launcher3")
+            ),
+            telemetry = telemetry
+        )
+
+        val results = loader.load(0L, 2_000L)
+        assertEquals(emptyList<Long>(), results.map(UsageEvent::timestampMs))
+        val navDrops = telemetry.lastResult?.navigationPackageDrops
+        assertEquals(1, navDrops?.get("com.android.launcher3"))
+        val dropReasons = telemetry.lastResult?.droppedEvents?.map { it.dropReason } ?: emptyList()
+        assertEquals(true, dropReasons.contains(UsageIngestionTelemetry.DropReason.NAVIGATION_PACKAGE))
+    }
+
+    @Test
+    fun `load keeps event when navigation class reported but task root equals app`() {
+        val usageStatsManager: UsageStatsManager = mockk(relaxed = true)
+        val telemetry = RecordingTelemetry()
+        every { usageStatsManager.queryEvents(any<Long>(), any()) } answers {
+            usageEventsOf(
+                createEvent(
+                    timestamp = 1_000L,
+                    type = UsageEventType.MOVE_TO_FOREGROUND,
+                    packageName = "com.example.app",
+                    taskRootPackage = "com.example.app",
+                    taskRootClass = "com.android.launcher3.Launcher"
+                )
+            )
+        }
+
+        val loader = UsageEventLoader(
+            usageStatsManager,
+            UsageAggregationConfig(
+                navigationActivityClassNames = setOf("com.android.launcher3.Launcher")
+            ),
+            telemetry = telemetry
+        )
+
+        val results = loader.load(0L, 2_000L)
+        assertEquals(1, results.size)
+        assertEquals("com.example.app", results.single().packageName)
+        // No drops expected in this scenario
+        val navDrops = telemetry.lastResult?.navigationPackageDrops?.values?.sum() ?: 0
+        assertEquals(0, navDrops)
+    }
+
+    @Test
+    fun `load drops event when navigation class and root is navigation package different from app`() {
+        val usageStatsManager: UsageStatsManager = mockk(relaxed = true)
+        val telemetry = RecordingTelemetry()
+        every { usageStatsManager.queryEvents(any<Long>(), any()) } answers {
+            usageEventsOf(
+                createEvent(
+                    timestamp = 1_000L,
+                    type = UsageEventType.MOVE_TO_FOREGROUND,
+                    packageName = "com.example.app",
+                    taskRootPackage = "com.android.systemui",
+                    taskRootClass = "com.android.systemui.recents.RecentsActivity"
+                )
+            )
+        }
+
+        val loader = UsageEventLoader(
+            usageStatsManager,
+            UsageAggregationConfig(
+                navigationActivityClassNames = setOf("com.android.systemui.recents.RecentsActivity"),
+                suppressedTaskRootPackages = setOf("com.android.systemui"),
+                navigationPackages = setOf("com.android.systemui")
+            ),
+            telemetry = telemetry
+        )
+
+        val results = loader.load(0L, 2_000L)
+        assertEquals(0, results.size)
+        val navDrops = telemetry.lastResult?.navigationPackageDrops?.values?.sum() ?: 0
+        assertEquals(1, navDrops)
+    }
+
+    @Test
+    fun `load reattributes navigation host events to task root`() {
+        val usageStatsManager: UsageStatsManager = mockk(relaxed = true)
+        every { usageStatsManager.queryEvents(any<Long>(), any()) } answers {
+            usageEventsOf(
+                createEvent(
+                    timestamp = 1_000L,
+                    type = UsageEventType.MOVE_TO_FOREGROUND,
+                    packageName = "com.android.launcher3",
+                    taskRootPackage = "com.example.realapp",
+                    taskRootClass = "com.example.realapp.MainActivity"
+                )
+            )
+        }
+
+        val loader = UsageEventLoader(
+            usageStatsManager,
+            UsageAggregationConfig(
+                navigationPackages = setOf("com.android.launcher3"),
+                suppressedTaskRootPackages = setOf("com.android.launcher3")
+            ),
+            telemetry = UsageIngestionTelemetry.NO_OP
+        )
+
+        val results = loader.load(0L, 2_000L)
+        assertEquals(1, results.size)
+        assertEquals("com.example.realapp", results.single().packageName)
+    }
+
+    @Test
+    fun `load reattributes google quicksearch host events to task root`() {
+        val usageStatsManager: UsageStatsManager = mockk(relaxed = true)
+        every { usageStatsManager.queryEvents(any<Long>(), any()) } answers {
+            usageEventsOf(
+                createEvent(
+                    timestamp = 2_000L,
+                    type = UsageEventType.MOVE_TO_FOREGROUND,
+                    packageName = "com.google.android.googlequicksearchbox",
+                    taskRootPackage = "com.android.chrome",
+                    taskRootClass = "com.google.android.apps.chrome.Main"
+                )
+            )
+        }
+
+        val loader = UsageEventLoader(
+            usageStatsManager,
+            UsageAggregationConfig(
+                hostPackagesForAttribution = setOf("com.google.android.googlequicksearchbox")
+            ),
+            telemetry = UsageIngestionTelemetry.NO_OP
+        )
+
+        val results = loader.load(0L, 3_000L)
+
+        assertEquals(1, results.size)
+        assertEquals("com.android.chrome", results.single().packageName)
+    }
+
     private fun usageEventsOf(vararg events: UsageEvents.Event): UsageEvents {
         val queue = events.map(::duplicateEvent).toMutableList()
         return mockk(relaxed = true) {
@@ -195,5 +349,14 @@ class UsageEventLoaderTest {
         private val EVENT_FIELDS: List<Field> = UsageEvents.Event::class.java.declaredFields
             .onEach { it.isAccessible = true }
             .toList()
+    }
+
+    private class RecordingTelemetry : UsageIngestionTelemetry {
+        var lastResult: UsageIngestionTelemetry.Result? = null
+        override fun onIngestionResult(result: UsageIngestionTelemetry.Result) {
+            lastResult = result
+        }
+
+        override fun onNavigationSanitization(stats: UsageIngestionTelemetry.NavigationSanitization) = Unit
     }
 }

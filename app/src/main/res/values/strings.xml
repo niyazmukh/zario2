@@ -37,11 +37,11 @@
     
     <!-- Usage Stats Permission -->
     <string name="usage_stats_permission_title">App Usage Access</string>
-    <string name="usage_stats_permission_description">Track time spent in your target app to measure your progress and provide feedback</string>
+    <string name="usage_stats_permission_description">Track screen time to measure your progress and provide feedback</string>
     
     <!-- Battery Optimization Permission -->
     <string name="battery_optimization_permission_title">Battery Optimization</string>
-    <string name="battery_optimization_permission_description">Allow Minutes to run in the background so notifications arrive even when your device is sleeping</string>
+    <string name="battery_optimization_permission_description">Allow Minutes to run in the background so screen time notifications arrive reliably</string>
     
     <!-- Permission Actions -->
     <string name="grant_permission">Grant</string>
@@ -51,8 +51,8 @@
     <string name="permission_denied">Grant</string>
     
     <!-- Target Screen -->
-    <string name="choose_target_app">Set your goal</string>
-    <string name="target_subtitle">We analyzed your recent screen time to recommend a healthy target</string>
+    <string name="choose_target_app">Set a healthy goal</string>
+    <string name="target_subtitle">based on your screen time average</string>
     <string name="analyzing_usage">Analyzing your screen time…</string>
     <string name="loading_apps">Loading your usage insights</string>
     <string name="top_apps_title">Today’s screen time summary</string>
@@ -66,9 +66,9 @@
     <string name="app_usage_error">Error loading app usage data</string>
     
     <!-- Goal Summary -->
-    <string name="goal_summary_usage">Past 7-day average: %1$s</string>
+    <string name="goal_summary_usage">Past week average: %1$s</string>
     <string name="goal_summary_target">Goal: stay under %1$s</string>
-    <string name="goal_reduction_percentage">That\'s a %1$d%% reduction from your average.</string>
+    <string name="goal_reduction_percentage">Try reducing that by %1$d%%</string>
     <string name="goal_summary_today_usage">Today\'s usage so far: %1$s</string>
     <string name="goal_summary_estimated_usage">We couldn\'t detect today\'s usage yet, so we\'ll start you with a minimal goal. You can adjust it later.</string>
     <string name="confirm_goal_selection">Save this goal</string>
@@ -162,6 +162,7 @@
     <string name="time_remaining_format">Day ends: %1$s</string>
     <string name="final_usage_format">Final usage: %1$s</string>
     <string name="total_points_format">Total points: %1$d</string>
+    <string name="total_points_not_applicable"></string>
 
     <!-- Condition Points Info -->
     <plurals name="points_quantity">
@@ -211,6 +212,7 @@
     <!-- FlexStakes Values -->
     <string name="flexstakes_reward_value">%1$d points</string>
     <string name="flexstakes_penalty_value">%1$d points</string>
+    <string name="flexstakes_penalty_value_short">%1$d</string>
     
     <!-- FlexStakes Validation -->
     <string name="error_reward_range">Reward must be between 0 and 10 points</string>
@@ -330,7 +332,9 @@
     <string name="profile_cycle_status_met">Met</string>
     <string name="profile_cycle_status_missed">Missed</string>
     <string name="profile_cycle_item_content_description">Cycle on %1$s, %2$s, %3$s points total</string>
+    <string name="profile_cycle_item_content_description_no_points">Cycle on %1$s, %2$s</string>
     <string name="profile_cycle_points_format">Points total: %1$s</string>
+    <string name="points_not_applicable" translatable="false">---</string>
     <string name="profile_debug_simulate_cycle">Simulate cycle completion</string>
     <string name="profile_debug_simulate_cycle_success">Simulated cycle completed. Scheduler restarted.</string>
     <string name="profile_debug_simulate_cycle_no_plan">Cannot simulate without an active goal. Configure a plan first.</string>
@@ -343,6 +347,7 @@
     <string name="feedback_goal_missed">Goal missed</string>
     <string name="feedback_points_earned">Points earned: +%1$d</string>
     <string name="feedback_points_lost">Points lost: -%1$d</string>
+    <string name="feedback_points_not_applicable"></string>
     <string name="feedback_goal_streak">Goal streak: %1$d</string>
     <string name="feedback_goal_streak_none">Goal streak: 0</string>
     <string name="feedback_continue_button">Continue</string>

@@ -2,6 +2,7 @@ package com.niyaz.zario.ui.feedback
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.niyaz.zario.data.Condition
 import com.niyaz.zario.data.local.dao.EvaluationHistoryDao
 import com.niyaz.zario.domain.PointsCalculator
 import com.niyaz.zario.repository.UserSessionRepository
@@ -19,7 +20,8 @@ data class FeedbackData(
     val pointsChange: Int,
     val goalStreak: Int,
     val planLabel: String,
-    val isLoading: Boolean = false
+    val isLoading: Boolean = false,
+    val showPointsChange: Boolean = true
 )
 
 @HiltViewModel
@@ -33,7 +35,8 @@ class FeedbackViewModel @Inject constructor(
         pointsChange = 0,
         goalStreak = 0,
         planLabel = "",
-        isLoading = true
+        isLoading = true,
+        showPointsChange = true
     ))
     val feedbackData: StateFlow<FeedbackData> = _feedbackData.asStateFlow()
 
@@ -67,12 +70,17 @@ class FeedbackViewModel @Inject constructor(
                 val latestEntry = allHistory.first()
                 
                 // Calculate points change based on condition and goal achievement
-                val pointsChange = PointsCalculator.calculateDelta(
-                    condition = condition,
-                    metGoal = latestEntry.metGoal,
-                    flexibleReward = user.flexibleReward,
-                    flexiblePenalty = user.flexiblePenalty
-                )
+                val showPoints = condition != Condition.BENCHMARK
+                val pointsChange = if (showPoints) {
+                    PointsCalculator.calculateDelta(
+                        condition = condition,
+                        metGoal = latestEntry.metGoal,
+                        flexibleReward = user.flexibleReward,
+                        flexiblePenalty = user.flexiblePenalty
+                    )
+                } else {
+                    0
+                }
 
                 // Calculate goal streak (consecutive goals met from most recent backwards)
                 val goalStreak = calculateGoalStreak(allHistory)
@@ -81,7 +89,8 @@ class FeedbackViewModel @Inject constructor(
                     goalMet = latestEntry.metGoal,
                     pointsChange = pointsChange,
                     goalStreak = goalStreak,
-                    planLabel = latestEntry.planLabel
+                    planLabel = latestEntry.planLabel,
+                    showPointsChange = showPoints
                 )
 
             } catch (e: Exception) {
@@ -90,7 +99,8 @@ class FeedbackViewModel @Inject constructor(
                     goalMet = false,
                     pointsChange = 0,
                     goalStreak = 0,
-                    planLabel = ""
+                    planLabel = "",
+                    showPointsChange = false
                 )
             }
         }

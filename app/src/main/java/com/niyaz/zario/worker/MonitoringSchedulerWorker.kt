@@ -5,7 +5,7 @@ import android.util.Log
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.niyaz.zario.BuildConfig
+import com.niyaz.zario.BuildFlags
 import com.niyaz.zario.Constants
 import com.niyaz.zario.core.evaluation.EvaluationRepository
 import com.niyaz.zario.core.usage.UsageStatsRepository
@@ -25,7 +25,7 @@ class MonitoringSchedulerWorker @AssistedInject constructor(
 ) : CoroutineWorker(appContext, params) {
 
     init {
-        if (BuildConfig.DEBUG) {
+        if (BuildFlags.isDebug) {
             Log.d(TAG, "MonitoringSchedulerWorker instantiated successfully with Hilt")
         }
     }
@@ -48,7 +48,7 @@ class MonitoringSchedulerWorker @AssistedInject constructor(
             if (!repository.hasActiveEvaluation()) {
                 if (nextCycleStart != null && now < nextCycleStart) {
                     val delaySeconds = TimeUnit.MILLISECONDS.toSeconds(nextCycleStart - now).coerceAtLeast(1)
-                    if (BuildConfig.DEBUG) {
+                    if (BuildFlags.isDebug) {
                         Log.d(TAG, "Evaluation inactive – waiting ${delaySeconds}s for next cycle window")
                     }
                     scheduleSelf(delaySeconds)
@@ -59,7 +59,7 @@ class MonitoringSchedulerWorker @AssistedInject constructor(
             }
 
             if (!repository.hasActiveEvaluation()) {
-                if (BuildConfig.DEBUG) {
+                if (BuildFlags.isDebug) {
                     Log.d(TAG, "Evaluation still inactive after start attempt; retrying soon")
                 }
                 scheduleSelf(Constants.WORKER_IDLE_INTERVAL_SECONDS)
@@ -91,7 +91,7 @@ class MonitoringSchedulerWorker @AssistedInject constructor(
 
         val refreshFailures = usageStatsRepository.refreshStatus.value.consecutiveFailures
         if (refreshFailures >= USAGE_FAILURE_BACKOFF_THRESHOLD) {
-            if (BuildConfig.DEBUG) {
+            if (BuildFlags.isDebug) {
                 val reason = usageStatsRepository.refreshStatus.value.lastErrorMessage ?: "unknown"
                 Log.d(TAG, "Usage stats refresh failing ($refreshFailures consecutive). Backing off to idle interval. Reason: $reason")
             }
@@ -110,25 +110,25 @@ class MonitoringSchedulerWorker @AssistedInject constructor(
 
         return when {
             usagePercentage >= 80f && isDeviceActive -> {
-                if (BuildConfig.DEBUG) {
+                if (BuildFlags.isDebug) {
                     Log.d(TAG, "Critical interval (30s) - usage at ${String.format("%.1f", usagePercentage)}% while device active ($foregroundPackage)")
                 }
                 Constants.WORKER_CRITICAL_INTERVAL_SECONDS
             }
             isDeviceActive -> {
-                if (BuildConfig.DEBUG) {
+                if (BuildFlags.isDebug) {
                     Log.d(TAG, "Active interval (60s) - device active ($foregroundPackage)")
                 }
                 Constants.WORKER_ACTIVE_INTERVAL_SECONDS
             }
             currentHour in 0..6 -> {
-                if (BuildConfig.DEBUG) {
+                if (BuildFlags.isDebug) {
                     Log.d(TAG, "Night interval (600s) - hour $currentHour")
                 }
                 Constants.WORKER_NIGHT_INTERVAL_SECONDS
             }
             else -> {
-                if (BuildConfig.DEBUG) {
+                if (BuildFlags.isDebug) {
                     Log.d(TAG, "Idle interval (300s) - device idle, usage at ${String.format("%.1f", usagePercentage)}%")
                 }
                 Constants.WORKER_IDLE_INTERVAL_SECONDS

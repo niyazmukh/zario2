@@ -9,7 +9,7 @@ fun DocumentSnapshot.toEvaluationHistoryEntry(userId: String, userEmail: String)
     return EvaluationHistoryEntry(
         userId = userId,
         userEmail = userEmail,
-    planLabel = getString("planLabel") ?: "",
+        planLabel = getString("planLabel") ?: "",
         goalTimeMs = getLong("goalTimeMs") ?: 0L,
         dailyAverageMs = getLong("dailyAverageMs") ?: 0L,
         finalUsageMs = getLong("finalUsageMs") ?: 0L,

@@ -20,7 +20,7 @@ import com.niyaz.zario.data.local.entities.PendingHourlySyncEntity
         PendingHourlySyncEntity::class,
         HourlySyncStateEntity::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = true
 )
 @TypeConverters(RemoteSyncTypeConverters::class)

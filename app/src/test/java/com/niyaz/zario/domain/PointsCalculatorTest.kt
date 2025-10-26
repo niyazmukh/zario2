@@ -88,4 +88,22 @@ class PointsCalculatorTest {
 
         assertEquals(-Constants.FLEXIBLE_PENALTY, delta)
     }
+
+    @Test
+    fun `calculateDelta returns zero for benchmark when goal met`() {
+        val delta = PointsCalculator.calculateDelta(
+            condition = Condition.BENCHMARK,
+            metGoal = true
+        )
+        assertEquals(0, delta)
+    }
+
+    @Test
+    fun `calculateDelta returns zero for benchmark when goal missed`() {
+        val delta = PointsCalculator.calculateDelta(
+            condition = Condition.BENCHMARK,
+            metGoal = false
+        )
+        assertEquals(0, delta)
+    }
 }

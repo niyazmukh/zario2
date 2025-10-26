@@ -8,6 +8,7 @@ import java.util.Locale
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.widget.PopupMenu
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.ColorUtils
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
@@ -17,9 +18,10 @@ import androidx.navigation.fragment.findNavController
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.niyaz.zario.Constants
 import com.niyaz.zario.R
+import com.niyaz.zario.data.Condition
 import com.niyaz.zario.data.EvaluationProgress
 import com.niyaz.zario.data.EvaluationState
-import com.niyaz.zario.data.ScreenTimePlan
+import com.niyaz.zario.data.User
 import com.niyaz.zario.databinding.FragmentInterventionBinding
 import com.niyaz.zario.permissions.PermissionsManager
 import com.niyaz.zario.core.evaluation.EvaluationRepository
@@ -188,15 +190,21 @@ class InterventionFragment : Fragment() {
                 
                 launch {
                     sessionRepository.session.collect { session ->
-                        updatePointsDisplay(session.user?.points ?: 100)
+                        updatePointsDisplay(session.user)
                     }
                 }
             }
         }
     }
 
-    private fun updatePointsDisplay(points: Int) {
-        binding.tvTotalPoints.text = getString(R.string.total_points_format, points)
+    private fun updatePointsDisplay(user: User?) {
+        val totalPointsText = if (user?.condition == Condition.BENCHMARK) {
+            getString(R.string.total_points_not_applicable)
+        } else {
+            val points = user?.points ?: 100
+            getString(R.string.total_points_format, points)
+        }
+        binding.tvTotalPoints.text = totalPointsText
     }
 
     private fun startEvaluationIfNeeded() {
@@ -281,17 +289,11 @@ class InterventionFragment : Fragment() {
 
             progressText.text = getString(R.string.empty_placeholder)
 
-            val statusColor = when {
-                progress.usagePercentage <= Constants.USAGE_ON_TRACK_THRESHOLD -> {
-                    ContextCompat.getColor(requireContext(), R.color.evaluation_on_track)
-                }
-                progress.usagePercentage <= Constants.PROGRESS_MAX_PERCENTAGE -> {
-                    ContextCompat.getColor(requireContext(), R.color.evaluation_over_goal)
-                }
-                else -> {
-                    ContextCompat.getColor(requireContext(), R.color.evaluation_exceeded)
-                }
-            }
+            val usageRatio = (progress.usagePercentage / Constants.PROGRESS_MAX_PERCENTAGE)
+                .coerceIn(0f, 1f)
+            val startColor = ContextCompat.getColor(requireContext(), R.color.evaluation_on_track)
+            val endColor = ContextCompat.getColor(requireContext(), R.color.evaluation_exceeded)
+            val statusColor = ColorUtils.blendARGB(startColor, endColor, usageRatio)
 
             progressIndicator.setIndicatorColor(statusColor)
 

@@ -6,7 +6,7 @@ import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.Data
 import androidx.work.WorkerParameters
-import com.niyaz.zario.BuildConfig
+import com.niyaz.zario.BuildFlags
 import com.niyaz.zario.Constants
 import com.niyaz.zario.core.evaluation.EvaluationRepository
 import com.niyaz.zario.core.evaluation.EvaluationResultProcessor
@@ -32,7 +32,7 @@ class UsageMonitoringWorker @AssistedInject constructor(
 ) : CoroutineWorker(appContext, params) {
 
     init {
-        if (BuildConfig.DEBUG) {
+        if (BuildFlags.isDebug) {
             Log.d(TAG, "UsageMonitoringWorker instantiated successfully with Hilt")
         }
     }
@@ -53,7 +53,7 @@ class UsageMonitoringWorker @AssistedInject constructor(
             val evaluationStartTime = activePlan.evaluationStartTime ?: run {
                 val nextCycleStart = repository.getNextCycleStartTime()
                 val nextCycleLabel = nextCycleStart?.toString() ?: "unknown"
-                if (BuildConfig.DEBUG) {
+                if (BuildFlags.isDebug) {
                     Log.d(TAG, "Evaluation start pending (next cycle at $nextCycleLabel), skipping usage check")
                 }
                 return Result.success()
@@ -76,7 +76,7 @@ class UsageMonitoringWorker @AssistedInject constructor(
 
             captureHourlySnapshotsIfNeeded(activePlan, evaluationStartTime, currentTime)
 
-            if (BuildConfig.DEBUG) {
+            if (BuildFlags.isDebug) {
                 Log.d(TAG, "Current usage: ${currentUsage}ms, Elapsed: ${elapsedTime}ms")
             }
 
@@ -120,13 +120,13 @@ class UsageMonitoringWorker @AssistedInject constructor(
 
             setProgress(outputData)
 
-            if (BuildConfig.DEBUG) {
+            if (BuildFlags.isDebug) {
                 Log.d(TAG, "UsageMonitoringWorker completed successfully")
             }
 
             Result.success(outputData)
         } catch (e: Exception) {
-            Log.e(TAG, "UsageMonitoringWorker failed", e)
+                Log.e(TAG, "UsageMonitoringWorker failed", e)
             Result.failure()
         }
     }
@@ -158,7 +158,7 @@ class UsageMonitoringWorker @AssistedInject constructor(
 
             val delayMs = (result.nextCycleStartTime - System.currentTimeMillis()).coerceAtLeast(0L)
             monitoringWorkScheduler.enqueueSchedulerWithDelayMillis(delayMs)
-            if (BuildConfig.DEBUG) {
+            if (BuildFlags.isDebug) {
                 Log.d(TAG, "Next scheduler enqueued for new cycle via MonitoringWorkScheduler")
             }
 

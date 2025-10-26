@@ -13,18 +13,14 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.google.android.material.snackbar.Snackbar
+import com.niyaz.zario.Constants
 import com.niyaz.zario.R
-import com.niyaz.zario.BuildConfig
+import com.niyaz.zario.data.Condition
 import com.niyaz.zario.databinding.FragmentProfileBinding
 import com.niyaz.zario.ui.profile.adapter.ProfileCyclesAdapter
 import dagger.hilt.android.AndroidEntryPoint
 import java.text.NumberFormat
 import kotlinx.coroutines.launch
-import com.niyaz.zario.data.Condition
-import com.niyaz.zario.Constants
-import com.niyaz.zario.core.evaluation.CycleSimulationDebugger
-import javax.inject.Inject
 
 @AndroidEntryPoint
 class ProfileFragment : Fragment() {
@@ -35,7 +31,6 @@ class ProfileFragment : Fragment() {
     private val viewModel: ProfileViewModel by viewModels()
     private lateinit var cyclesAdapter: ProfileCyclesAdapter
     private val numberFormatter: NumberFormat = NumberFormat.getIntegerInstance()
-    @Inject lateinit var cycleSimulationDebugger: CycleSimulationDebugger
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -49,53 +44,8 @@ class ProfileFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         setupRecycler()
-        setupDebugControls()
+        DebugProfileActions.setupDebugControls(this, binding)
         observeUiState()
-    }
-
-    private fun setupDebugControls() {
-        val debugButton = binding.btnSimulateCycleCompletion
-        if (!BuildConfig.DEBUG) {
-            debugButton.isVisible = false
-            return
-        }
-
-        debugButton.isVisible = true
-        debugButton.setOnClickListener {
-            debugButton.isEnabled = false
-            viewLifecycleOwner.lifecycleScope.launch {
-                try {
-                    when (val outcome = cycleSimulationDebugger.simulateCycleCompletion()) {
-                        is CycleSimulationDebugger.Outcome.Success -> {
-                            Snackbar.make(
-                                binding.root,
-                                getString(R.string.profile_debug_simulate_cycle_success),
-                                Snackbar.LENGTH_LONG
-                            ).show()
-                        }
-                        CycleSimulationDebugger.Outcome.NoPlan -> {
-                            Snackbar.make(
-                                binding.root,
-                                getString(R.string.profile_debug_simulate_cycle_no_plan),
-                                Snackbar.LENGTH_LONG
-                            ).show()
-                        }
-                        is CycleSimulationDebugger.Outcome.Failure -> {
-                            val reason = outcome.cause.localizedMessage
-                                ?.takeIf { it.isNotBlank() }
-                                ?: outcome.cause.javaClass.simpleName
-                            Snackbar.make(
-                                binding.root,
-                                getString(R.string.profile_debug_simulate_cycle_failure, reason),
-                                Snackbar.LENGTH_LONG
-                            ).show()
-                        }
-                    }
-                } finally {
-                    debugButton.isEnabled = true
-                }
-            }
-        }
     }
 
     private fun setupRecycler() {
@@ -136,7 +86,9 @@ class ProfileFragment : Fragment() {
                 numberFormatter.format(state.cyclesMet),
                 numberFormatter.format(state.cyclesElapsed)
             )
-            binding.tvTotalPoints.text = numberFormatter.format(state.totalPoints)
+            val totalPointsText = state.totalPoints?.let(numberFormatter::format)
+                ?: getString(R.string.points_not_applicable)
+            binding.tvTotalPoints.text = totalPointsText
             binding.tvCycleListTitle.text = getString(
                 R.string.profile_cycle_list_title_with_total,
                 numberFormatter.format(state.cyclesElapsed)
@@ -169,6 +121,7 @@ class ProfileFragment : Fragment() {
                 Constants.DEPOSIT_REWARD,
                 Constants.DEPOSIT_PENALTY
             )
+            Condition.BENCHMARK -> null
             Condition.FLEXIBLE -> {
                 val reward = state.flexibleReward ?: Constants.FLEXIBLE_REWARD
                 val penalty = state.flexiblePenalty ?: Constants.FLEXIBLE_PENALTY

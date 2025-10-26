@@ -30,18 +30,21 @@ class UsageAggregationStoreTest {
     private lateinit var dao: FakeUsageSessionDao
     private lateinit var rawDao: FakeUsageRawEventDao
     private lateinit var store: UsageAggregationStore
+    private lateinit var telemetry: RecordingTelemetry
 
     @Before
     fun setUp() {
         config = UsageAggregationConfig(
-            mergeGap = Duration.ofMinutes(1),
+            mergeGap = Duration.ofSeconds(10),
+            taskContinuityGap = Duration.ZERO,
             clock = Clock.fixed(nowInstant, zone),
             zoneId = zone
         )
-    dao = FakeUsageSessionDao()
-    rawDao = FakeUsageRawEventDao()
-    source = FakeTrackedEventSource()
-    store = UsageAggregationStore(source, UsageTimelineReconciler(config), dao, rawDao, config)
+        dao = FakeUsageSessionDao()
+        rawDao = FakeUsageRawEventDao()
+        source = FakeTrackedEventSource()
+        telemetry = RecordingTelemetry()
+        store = UsageAggregationStore(source, UsageTimelineReconciler(config), dao, rawDao, config, telemetry)
     }
 
     @Test
@@ -49,33 +52,33 @@ class UsageAggregationStoreTest {
         val windowStart = nowInstant.minusSeconds(600).toEpochMilli()
         val windowEnd = nowInstant.toEpochMilli()
         val fakeEvents = listOf(
-            TrackedEvent.ActivityLifecycle(
+            TrackedEvent.UsageStats(
                 epochMillis = windowStart + 10_000,
                 confidence = EventConfidence.HIGH,
                 packageName = "com.a",
-                activityClass = "A",
-                state = ActivityLifecycleState.RESUMED
+                type = UsageEventType.MOVE_TO_FOREGROUND,
+                backingEvent = UsageEvent(windowStart + 10_000, UsageEventType.MOVE_TO_FOREGROUND, "com.a")
             ),
-            TrackedEvent.ActivityLifecycle(
+            TrackedEvent.UsageStats(
                 epochMillis = windowStart + 40_000,
                 confidence = EventConfidence.HIGH,
                 packageName = "com.a",
-                activityClass = "A",
-                state = ActivityLifecycleState.PAUSED
+                type = UsageEventType.MOVE_TO_BACKGROUND,
+                backingEvent = UsageEvent(windowStart + 40_000, UsageEventType.MOVE_TO_BACKGROUND, "com.a")
             ),
-            TrackedEvent.ActivityLifecycle(
+            TrackedEvent.UsageStats(
                 epochMillis = windowStart + 50_000,
                 confidence = EventConfidence.HIGH,
                 packageName = "com.b",
-                activityClass = "B",
-                state = ActivityLifecycleState.RESUMED
+                type = UsageEventType.MOVE_TO_FOREGROUND,
+                backingEvent = UsageEvent(windowStart + 50_000, UsageEventType.MOVE_TO_FOREGROUND, "com.b")
             ),
-            TrackedEvent.ActivityLifecycle(
+            TrackedEvent.UsageStats(
                 epochMillis = windowStart + 80_000,
                 confidence = EventConfidence.HIGH,
                 packageName = "com.b",
-                activityClass = "B",
-                state = ActivityLifecycleState.PAUSED
+                type = UsageEventType.MOVE_TO_BACKGROUND,
+                backingEvent = UsageEvent(windowStart + 80_000, UsageEventType.MOVE_TO_BACKGROUND, "com.b")
             )
         )
         source.events = fakeEvents
@@ -83,7 +86,7 @@ class UsageAggregationStoreTest {
         store.ingestWindow(windowStart, windowEnd)
 
         val summary = store.summarize(windowStart, windowEnd)
-    assertEquals("Totals: ${summary.totalsByPackage}", 2, summary.totalsByPackage.size)
+        assertEquals("Totals: ${summary.totalsByPackage}", 2, summary.totalsByPackage.size)
         assertEquals(30_000L, summary.totalsByPackage.getValue("com.a"))
         assertEquals(30_000L, summary.totalsByPackage.getValue("com.b"))
 
@@ -201,6 +204,214 @@ class UsageAggregationStoreTest {
         assertEquals("MergedActivity", stored.taskRootPackageName)
     }
 
+    @Test
+    fun `ingest keeps sessions separate when gap exceeds merge tolerance`() = runTest(dispatcher) {
+        val windowStart = Instant.parse("2025-10-10T12:00:00Z").toEpochMilli()
+        val windowEnd = windowStart + Duration.ofHours(2).toMillis()
+        val firstStart = windowStart + Duration.ofMinutes(5).toMillis()
+        val firstEnd = firstStart + Duration.ofMinutes(30).toMillis()
+        val secondStart = firstEnd + Duration.ofSeconds(30).toMillis()
+        val secondEnd = secondStart + Duration.ofMinutes(10).toMillis()
+        val dayStart = Instant.ofEpochMilli(firstStart)
+            .atZone(zone)
+            .toLocalDate()
+            .atStartOfDay(zone)
+            .toInstant()
+            .toEpochMilli()
+
+        dao.upsertAll(
+            listOf(
+                UsageSessionEntity(
+                    packageName = "com.contiguous",
+                    startMs = firstStart,
+                    endMs = firstEnd,
+                    durationMs = firstEnd - firstStart,
+                    dayStartMs = dayStart,
+                    taskRootPackageName = null
+                )
+            )
+        )
+
+        source.events = listOf(
+            TrackedEvent.ActivityLifecycle(
+                epochMillis = secondStart,
+                confidence = EventConfidence.HIGH,
+                packageName = "com.contiguous",
+                activityClass = "Activity",
+                state = ActivityLifecycleState.RESUMED
+            ),
+            TrackedEvent.ActivityLifecycle(
+                epochMillis = secondEnd,
+                confidence = EventConfidence.HIGH,
+                packageName = "com.contiguous",
+                activityClass = "Activity",
+                state = ActivityLifecycleState.PAUSED
+            )
+        )
+
+        store.ingestWindow(windowStart, windowEnd)
+
+        val sessions = dao.sessionsIntersecting(windowStart, windowEnd)
+            .filter { it.packageName == "com.contiguous" }
+            .sortedBy { it.startMs }
+
+        assertEquals(2, sessions.size)
+
+        val first = sessions[0]
+        assertEquals(firstStart, first.startMs)
+        assertEquals(firstEnd, first.endMs)
+        assertEquals(firstEnd - firstStart, first.durationMs)
+
+        val second = sessions[1]
+        assertEquals(secondStart, second.startMs)
+        assertEquals(secondEnd, second.endMs)
+        assertEquals(secondEnd - secondStart, second.durationMs)
+    }
+
+    @Test
+    fun `short navigation gaps are removed from totals`() = runTest(dispatcher) {
+        val navConfig = config.copy(
+            taskContinuityGap = Duration.ZERO,
+            navigationPackages = setOf("com.android.launcher3"),
+            suppressedTaskRootPackages = config.suppressedTaskRootPackages + "com.android.launcher3"
+        )
+        telemetry = RecordingTelemetry()
+        store = UsageAggregationStore(source, UsageTimelineReconciler(navConfig), dao, rawDao, navConfig, telemetry)
+        config = navConfig
+
+        val windowStart = nowInstant.minusSeconds(600).toEpochMilli()
+        val windowEnd = nowInstant.toEpochMilli()
+
+        source.events = listOf(
+            TrackedEvent.UsageStats(
+                epochMillis = windowStart + 10_000,
+                confidence = EventConfidence.HIGH,
+                packageName = "com.example.prev",
+                type = UsageEventType.MOVE_TO_FOREGROUND,
+                backingEvent = UsageEvent(windowStart + 10_000, UsageEventType.MOVE_TO_FOREGROUND, "com.example.prev")
+            ),
+            TrackedEvent.UsageStats(
+                epochMillis = windowStart + 20_000,
+                confidence = EventConfidence.HIGH,
+                packageName = "com.example.prev",
+                type = UsageEventType.MOVE_TO_BACKGROUND,
+                backingEvent = UsageEvent(windowStart + 20_000, UsageEventType.MOVE_TO_BACKGROUND, "com.example.prev")
+            ),
+            TrackedEvent.UsageStats(
+                epochMillis = windowStart + 20_000,
+                confidence = EventConfidence.MEDIUM,
+                packageName = "com.android.launcher3",
+                type = UsageEventType.MOVE_TO_FOREGROUND,
+                backingEvent = UsageEvent(windowStart + 20_000, UsageEventType.MOVE_TO_FOREGROUND, "com.android.launcher3")
+            ),
+            TrackedEvent.UsageStats(
+                epochMillis = windowStart + 25_000,
+                confidence = EventConfidence.MEDIUM,
+                packageName = "com.android.launcher3",
+                type = UsageEventType.MOVE_TO_BACKGROUND,
+                backingEvent = UsageEvent(windowStart + 25_000, UsageEventType.MOVE_TO_BACKGROUND, "com.android.launcher3")
+            ),
+            TrackedEvent.UsageStats(
+                epochMillis = windowStart + 25_000,
+                confidence = EventConfidence.HIGH,
+                packageName = "com.example.next",
+                type = UsageEventType.MOVE_TO_FOREGROUND,
+                backingEvent = UsageEvent(windowStart + 25_000, UsageEventType.MOVE_TO_FOREGROUND, "com.example.next")
+            ),
+            TrackedEvent.UsageStats(
+                epochMillis = windowStart + 40_000,
+                confidence = EventConfidence.HIGH,
+                packageName = "com.example.next",
+                type = UsageEventType.MOVE_TO_BACKGROUND,
+                backingEvent = UsageEvent(windowStart + 40_000, UsageEventType.MOVE_TO_BACKGROUND, "com.example.next")
+            )
+        )
+
+        store.ingestWindow(windowStart, windowEnd)
+        val summary = store.summarize(windowStart, windowEnd)
+        assertEquals(false, summary.totalsByPackage.containsKey("com.android.launcher3"))
+        val prevDuration = summary.totalsByPackage.getValue("com.example.prev")
+        val nextDuration = summary.totalsByPackage.getValue("com.example.next")
+        assertEquals(10_000L, prevDuration)
+        assertEquals(15_000L, nextDuration)
+        val navigationStats = telemetry.lastNavigationSanitization
+        requireNotNull(navigationStats)
+        assertEquals(0L, navigationStats.reassignedDurationMs)
+        assertEquals(5_000L, navigationStats.droppedDurationMs)
+    }
+
+    @Test
+    fun `long navigation segments are dropped from totals`() = runTest(dispatcher) {
+        val navConfig = config.copy(
+            taskContinuityGap = Duration.ZERO,
+            navigationPackages = setOf("com.android.launcher3"),
+            suppressedTaskRootPackages = config.suppressedTaskRootPackages + "com.android.launcher3"
+        )
+        telemetry = RecordingTelemetry()
+        store = UsageAggregationStore(source, UsageTimelineReconciler(navConfig), dao, rawDao, navConfig, telemetry)
+        config = navConfig
+
+        val windowStart = nowInstant.minusSeconds(600).toEpochMilli()
+        val windowEnd = nowInstant.toEpochMilli()
+
+        source.events = listOf(
+            TrackedEvent.UsageStats(
+                epochMillis = windowStart + 10_000,
+                confidence = EventConfidence.HIGH,
+                packageName = "com.example.prev",
+                type = UsageEventType.MOVE_TO_FOREGROUND,
+                backingEvent = UsageEvent(windowStart + 10_000, UsageEventType.MOVE_TO_FOREGROUND, "com.example.prev")
+            ),
+            TrackedEvent.UsageStats(
+                epochMillis = windowStart + 20_000,
+                confidence = EventConfidence.HIGH,
+                packageName = "com.example.prev",
+                type = UsageEventType.MOVE_TO_BACKGROUND,
+                backingEvent = UsageEvent(windowStart + 20_000, UsageEventType.MOVE_TO_BACKGROUND, "com.example.prev")
+            ),
+            TrackedEvent.UsageStats(
+                epochMillis = windowStart + 20_000,
+                confidence = EventConfidence.MEDIUM,
+                packageName = "com.android.launcher3",
+                type = UsageEventType.MOVE_TO_FOREGROUND,
+                backingEvent = UsageEvent(windowStart + 20_000, UsageEventType.MOVE_TO_FOREGROUND, "com.android.launcher3")
+            ),
+            TrackedEvent.UsageStats(
+                epochMillis = windowStart + 35_000,
+                confidence = EventConfidence.MEDIUM,
+                packageName = "com.android.launcher3",
+                type = UsageEventType.MOVE_TO_BACKGROUND,
+                backingEvent = UsageEvent(windowStart + 35_000, UsageEventType.MOVE_TO_BACKGROUND, "com.android.launcher3")
+            ),
+            TrackedEvent.UsageStats(
+                epochMillis = windowStart + 35_000,
+                confidence = EventConfidence.HIGH,
+                packageName = "com.example.next",
+                type = UsageEventType.MOVE_TO_FOREGROUND,
+                backingEvent = UsageEvent(windowStart + 35_000, UsageEventType.MOVE_TO_FOREGROUND, "com.example.next")
+            ),
+            TrackedEvent.UsageStats(
+                epochMillis = windowStart + 50_000,
+                confidence = EventConfidence.HIGH,
+                packageName = "com.example.next",
+                type = UsageEventType.MOVE_TO_BACKGROUND,
+                backingEvent = UsageEvent(windowStart + 50_000, UsageEventType.MOVE_TO_BACKGROUND, "com.example.next")
+            )
+        )
+
+        store.ingestWindow(windowStart, windowEnd)
+        val summary = store.summarize(windowStart, windowEnd)
+        assertEquals(false, summary.totalsByPackage.containsKey("com.android.launcher3"))
+        val prevDuration = summary.totalsByPackage.getValue("com.example.prev")
+        val nextDuration = summary.totalsByPackage.getValue("com.example.next")
+        assertEquals(10_000L, prevDuration)
+        assertEquals(15_000L, nextDuration)
+        val navigationStats = telemetry.lastNavigationSanitization
+        requireNotNull(navigationStats)
+        assertEquals(0L, navigationStats.reassignedDurationMs)
+        assertEquals(15_000L, navigationStats.droppedDurationMs)
+    }
+
     /**
      * "Fake" indicates a simple in-memory test double that mimics the DAO contract without Room.
      */
@@ -268,6 +479,16 @@ class UsageAggregationStoreTest {
 
         override suspend fun purgeBefore(cutoff: Long) {
             events.removeAll { it.timestampMs < cutoff }
+        }
+    }
+
+    private class RecordingTelemetry : UsageIngestionTelemetry {
+        var lastNavigationSanitization: UsageIngestionTelemetry.NavigationSanitization? = null
+
+        override fun onIngestionResult(result: UsageIngestionTelemetry.Result) = Unit
+
+        override fun onNavigationSanitization(stats: UsageIngestionTelemetry.NavigationSanitization) {
+            lastNavigationSanitization = stats
         }
     }
 }

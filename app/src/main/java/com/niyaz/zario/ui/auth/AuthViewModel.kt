@@ -74,7 +74,7 @@ class AuthViewModel @Inject constructor(
             _authResult.value = AuthResult.Loading
 
             // Randomised experimental assignment
-            val assignedCondition = Condition.values().random()
+            val assignedCondition = Condition.randomForSignup()
             val request = SignupRequest(
                 email = email,
                 password = password,

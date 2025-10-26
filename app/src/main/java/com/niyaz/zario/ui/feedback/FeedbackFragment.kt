@@ -17,6 +17,7 @@ import androidx.navigation.fragment.findNavController
 import com.niyaz.zario.R
 import com.niyaz.zario.databinding.FragmentFeedbackBinding
 import com.niyaz.zario.core.evaluation.EvaluationRepository
+import com.google.android.material.color.MaterialColors
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -114,22 +115,28 @@ class FeedbackFragment : Fragment() {
             animateGoalStatus(tvGoalStatus, feedbackData.goalMet)
 
             // Points Change
-            tvPointsChange.text = if (feedbackData.pointsChange >= 0) {
-                getString(R.string.feedback_points_earned, feedbackData.pointsChange)
+            if (feedbackData.showPointsChange) {
+                tvPointsChange.text = if (feedbackData.pointsChange >= 0) {
+                    getString(R.string.feedback_points_earned, feedbackData.pointsChange)
+                } else {
+                    getString(R.string.feedback_points_lost, kotlin.math.abs(feedbackData.pointsChange))
+                }
+
+                val pointsColor = if (feedbackData.pointsChange >= 0) {
+                    requireContext().getColor(R.color.evaluation_success)
+                } else {
+                    requireContext().getColor(R.color.evaluation_exceeded)
+                }
+                tvPointsChange.setTextColor(pointsColor)
+                animatePointsChange(tvPointsChange, feedbackData.pointsChange >= 0)
             } else {
-                getString(R.string.feedback_points_lost, kotlin.math.abs(feedbackData.pointsChange))
+                tvPointsChange.text = getString(R.string.feedback_points_not_applicable)
+                val neutralColor = MaterialColors.getColor(tvPointsChange, com.google.android.material.R.attr.colorOnSurfaceVariant)
+                tvPointsChange.setTextColor(neutralColor)
+                tvPointsChange.scaleX = 1f
+                tvPointsChange.scaleY = 1f
+                tvPointsChange.alpha = 1f
             }
-            
-            // Set points change color
-            val pointsColor = if (feedbackData.pointsChange >= 0) {
-                requireContext().getColor(R.color.evaluation_success)
-            } else {
-                requireContext().getColor(R.color.evaluation_exceeded)
-            }
-            tvPointsChange.setTextColor(pointsColor)
-            
-            // Animate points change
-            animatePointsChange(tvPointsChange, feedbackData.pointsChange >= 0)
 
             // Goal Streak
             tvGoalStreak.text = if (feedbackData.goalStreak > 0) {
