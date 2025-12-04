@@ -1,13 +1,18 @@
-# Zario — Privacy Declaration
+﻿# Minutes  Privacy Declaration
 
-Last updated: 2025-10-29
+Last updated: 2025-12-04
 
 This document explains what information the Zario app may collect, why it's collected, how it is used, and how you can exercise your privacy choices. This is a short, developer-friendly summary and not a substitute for full legal privacy policies required in some jurisdictions.
 
 ## 1. App owner / contact
 
-Zario (app package: `com.niyaz.zario`)
-For privacy questions or data requests, contact: nmukhame@campus.haifa.ac.il.
+**App Name:** Minutes
+**Package Name:** com.niyaz.zario
+**Developer Name:** behavioral sci
+**Legal Entity:** Niyaz Mukhametzyanov
+**Developer Account ID:** 8686510709026395519
+
+For privacy questions or data requests, contact: nmukhame@campus.haifa.ac.il, or devbehavioralsci@gmail.com
 
 ## 2. Data types the app may collect
 
@@ -50,7 +55,7 @@ The app uses standard Android platform protections and TLS (for Firebase/Firesto
 
 ## 8. Changes to this declaration
 
-This file may be updated when app features or backend processing changes. Check the `Last updated` date at the top.
+This file may be updated when app features or backend processing changes. Check the Last updated date at the top.
 
 ---
 Disclaimer: This is a short-form privacy summary prepared for developer convenience. It is not legal advice, nor a legal declaration.

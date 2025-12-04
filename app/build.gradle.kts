@@ -24,6 +24,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.hilt.android)
     alias(libs.plugins.google.services)
+    alias(libs.plugins.android.baselineprofile)
     kotlin("kapt")
 }
 
@@ -35,8 +36,8 @@ android {
         applicationId = "com.niyaz.zario"
         minSdk = 29
         targetSdk = 35
-        versionCode = 12
-        versionName = "1.3.8"
+        versionCode = 13
+        versionName = "1.3.9"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
@@ -85,6 +86,10 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            ndk {
+                // Generate a compact symbol table for native crash resolution in Play Console.
+                debugSymbolLevel = "SYMBOL_TABLE"
+            }
 
             val requestedRelease = isReleaseTaskRequested(gradle.startParameter.taskNames)
             val hasSigningConfig = signingConfigs.findByName("release") != null
@@ -109,6 +114,12 @@ android {
         viewBinding = true
         buildConfig = true
     }
+    packaging {
+        jniLibs {
+            // Retain debug metadata for shipped native libraries so symbol zips are complete.
+            keepDebugSymbols += setOf("**/*.so")
+        }
+    }
 }
 
 kapt {
@@ -122,6 +133,7 @@ kapt {
 
 dependencies {
     implementation(project(":usage-core"))
+    baselineProfile(project(":baselineprofile"))
     implementation(platform("com.google.firebase:firebase-bom:34.4.0"))
     implementation("com.google.firebase:firebase-auth-ktx:23.1.0")
     implementation("com.google.firebase:firebase-firestore-ktx:25.1.0")
