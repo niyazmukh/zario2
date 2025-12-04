@@ -153,8 +153,12 @@ class UsageMonitoringWorker @AssistedInject constructor(
                 hourlyUsage = hourlyUsage
             )
 
+            // Prune old hourly usage data (keep 30 days)
+            val retentionThreshold = System.currentTimeMillis() - TimeUnit.DAYS.toMillis(30)
+            repository.pruneOldHourlyUsage(retentionThreshold)
+
             // Send cycle completion notification immediately
-            notificationDispatcher.notifyCycleCompletionNow(appContext, plan, finalUsage)
+            notificationDispatcher.notifyCycleCompletionNow(appContext, plan, result)
 
             val delayMs = (result.nextCycleStartTime - System.currentTimeMillis()).coerceAtLeast(0L)
             monitoringWorkScheduler.enqueueSchedulerWithDelayMillis(delayMs)

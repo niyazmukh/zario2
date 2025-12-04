@@ -3,24 +3,19 @@ package com.niyaz.zario
 import android.app.Application
 import android.util.Log
 import androidx.hilt.work.HiltWorkerFactory
-import androidx.lifecycle.DefaultLifecycleObserver
-import androidx.lifecycle.LifecycleOwner
-import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.work.Configuration
 import com.niyaz.zario.core.evaluation.EvaluationRepository
-import com.niyaz.zario.worker.MonitoringWorkScheduler
-import com.niyaz.zario.firebase.FirebaseAuthInitializer
-import com.niyaz.zario.monitoring.EngagementEventLogger
-import com.niyaz.zario.data.local.entities.AppInteractionSource
-import com.niyaz.zario.usage.tracking.UsageTrackingInitializer
-import dagger.hilt.android.HiltAndroidApp
-import kotlinx.coroutines.launch
-import javax.inject.Inject
 import com.niyaz.zario.di.ApplicationScope
+import com.niyaz.zario.firebase.FirebaseAuthInitializer
+import com.niyaz.zario.usage.tracking.UsageTrackingInitializer
+import com.niyaz.zario.worker.MonitoringWorkScheduler
+import dagger.hilt.android.HiltAndroidApp
+import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 
 @HiltAndroidApp
-class ZarioApp : Application(), Configuration.Provider {
+class MinutesApp : Application(), Configuration.Provider {
 
     @Inject lateinit var workerFactory: HiltWorkerFactory
     @Inject lateinit var evaluationRepository: EvaluationRepository
@@ -28,41 +23,33 @@ class ZarioApp : Application(), Configuration.Provider {
     @Inject lateinit var monitoringWorkScheduler: MonitoringWorkScheduler
     @Inject lateinit var firebaseAuthInitializer: FirebaseAuthInitializer
     @Inject lateinit var usageTrackingInitializer: UsageTrackingInitializer
-    @Inject lateinit var engagementEventLogger: EngagementEventLogger
 
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
             .setWorkerFactory(workerFactory)
             .setMinimumLoggingLevel(Log.ERROR)
             .build()
-            
+
     override fun onCreate() {
         super.onCreate()
-        
+
         // Manually initialize WorkManager with our custom configuration
-        Log.i("ZarioApp", "Application created; WorkManager configured via Configuration.Provider")
+        Log.i("MinutesApp", "Application created; WorkManager configured via Configuration.Provider")
 
         firebaseAuthInitializer.initialize()
         usageTrackingInitializer.initialize(this)
-        engagementEventLogger.logAppOpen(AppInteractionSource.COLD_START)
-        ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
-            override fun onStart(owner: LifecycleOwner) {
-                engagementEventLogger.logAppOpen(AppInteractionSource.FOREGROUND)
-            }
-        })
 
-        // CRITICAL: Boot-time recovery for process kills
-        // If there's an active evaluation when the app starts, restart monitoring
+        // Boot-time recovery for process kills that occur during active evaluations
         applicationScope.launch {
             val currentPlan = evaluationRepository.getCurrentPlan()
             if (currentPlan?.evaluationStartTime != null && !evaluationRepository.isEvaluationCompleted()) {
-                Log.i("ZarioApp", "Boot recovery: Restarting monitoring for active evaluation (${currentPlan.label})")
+                Log.i("MinutesApp", "Boot recovery: Restarting monitoring for active evaluation (${currentPlan.label})")
 
-                // Restart monitoring scheduler immediately
                 monitoringWorkScheduler.enqueueScheduler()
 
-                Log.i("ZarioApp", "Boot recovery: Monitoring scheduler restarted successfully")
+                Log.i("MinutesApp", "Boot recovery: Monitoring scheduler restarted successfully")
             }
         }
     }
+
 }

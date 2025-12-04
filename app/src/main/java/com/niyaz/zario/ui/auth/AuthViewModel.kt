@@ -52,6 +52,9 @@ class AuthViewModel @Inject constructor(
     private val _genderError = MutableStateFlow<String?>(null)
     val genderError: StateFlow<String?> = _genderError.asStateFlow()
 
+    private val _referralNumberError = MutableStateFlow<String?>(null)
+    val referralNumberError: StateFlow<String?> = _referralNumberError.asStateFlow()
+
     fun login(email: String, password: String) {
         if (!validateLoginInput(email, password)) return
 
@@ -67,8 +70,15 @@ class AuthViewModel @Inject constructor(
         }
     }
 
-    fun signup(yearOfBirth: String, gender: String, email: String, password: String, confirmPassword: String) {
-        if (!validateSignupInput(yearOfBirth, gender, email, password, confirmPassword)) return
+    fun signup(
+        yearOfBirth: String,
+        gender: String,
+        email: String,
+        password: String,
+        confirmPassword: String,
+        referralNumber: String
+    ) {
+        if (!validateSignupInput(yearOfBirth, gender, email, password, confirmPassword, referralNumber)) return
 
         viewModelScope.launch {
             _authResult.value = AuthResult.Loading
@@ -80,7 +90,8 @@ class AuthViewModel @Inject constructor(
                 password = password,
                 yearOfBirth = yearOfBirth,
                 gender = gender,
-                condition = assignedCondition
+                condition = assignedCondition,
+                referralNumber = referralNumber.takeIf { it.isNotBlank() }
             )
 
             val result = authRepository.signUp(request)
@@ -103,24 +114,34 @@ class AuthViewModel @Inject constructor(
         return emailValidation.isValid && passwordValidation.isValid
     }
 
-    private fun validateSignupInput(yearOfBirth: String, gender: String, email: String, password: String, confirmPassword: String): Boolean {
+    private fun validateSignupInput(yearOfBirth: String, gender: String, email: String, password: String, confirmPassword: String, referralNumber: String): Boolean {
         val yearValidation = validateYearOfBirth(yearOfBirth)
         val genderValidation = validateGender(gender)
         val emailValidation = validateEmail(email)
         val passwordValidation = validatePassword(password)
         val confirmPasswordValidation = validateConfirmPassword(password, confirmPassword)
+        val referralValidation = validateReferral(referralNumber)
 
         _yearOfBirthError.value = yearValidation.errorMessage
         _genderError.value = genderValidation.errorMessage
         _emailError.value = emailValidation.errorMessage
         _passwordError.value = passwordValidation.errorMessage
         _confirmPasswordError.value = confirmPasswordValidation.errorMessage
+        _referralNumberError.value = referralValidation.errorMessage
 
         return yearValidation.isValid &&
                genderValidation.isValid &&
                emailValidation.isValid && 
                passwordValidation.isValid && 
-               confirmPasswordValidation.isValid
+               confirmPasswordValidation.isValid &&
+               referralValidation.isValid
+    }
+
+    private fun validateReferral(referral: String): ValidationResult {
+        return when {
+            referral.isEmpty() -> ValidationResult(false, context.getString(R.string.error_empty_referral_number))
+            else -> ValidationResult(true)
+        }
     }
 
     private fun validateEmail(email: String): ValidationResult {
@@ -179,6 +200,7 @@ class AuthViewModel @Inject constructor(
         _confirmPasswordError.value = null
         _yearOfBirthError.value = null
         _genderError.value = null
+        _referralNumberError.value = null
     }
 
     private fun mapAuthError(error: Throwable): String {

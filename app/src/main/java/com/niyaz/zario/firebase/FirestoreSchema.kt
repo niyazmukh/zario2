@@ -6,6 +6,8 @@ internal object FirestoreCollections {
     const val HOURLY_USAGE = "hourly_usage"
     const val LIVE_USAGE = "live_usage"
     const val HOURLY_PACKAGES = "packages"
+    const val APP_INTERACTIONS = "app_interactions"
+    const val NOTIFICATION_EVENTS = "notification_events"
 }
 
 internal object FirestoreFields {
@@ -19,8 +21,9 @@ internal object FirestoreFields {
     const val HAS_SET_FLEXIBLE_STAKES = "hasSetFlexibleStakes"
     const val GOAL_SUCCESS_STREAK = "goalSuccessStreak"
     const val PLAN = "plan"
+    const val REFERRAL_NUMBER = "referralNumber"
 }
 
 internal object FirestoreDefaults {
-    const val INITIAL_POINTS_BALANCE = 560
+    const val INITIAL_POINTS_BALANCE = 840
 }

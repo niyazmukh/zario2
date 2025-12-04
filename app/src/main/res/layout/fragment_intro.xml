@@ -1,11 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:fillViewport="true"
-    tools:context=".ui.about.AboutFragment">
+    android:fillViewport="true">
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
@@ -13,12 +11,12 @@
         android:padding="@dimen/spacing_lg">
 
         <TextView
-            android:id="@+id/tv_about_title"
+            android:id="@+id/tv_intro_title"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/spacing_xxl"
             android:gravity="center"
-            android:text="@string/about_title"
+            android:text="@string/intro_title"
             android:textAppearance="?attr/textAppearanceHeadlineMedium"
             android:textColor="?attr/colorOnSurface"
             app:layout_constraintEnd_toEndOf="parent"
@@ -26,128 +24,121 @@
             app:layout_constraintTop_toTopOf="parent" />
 
         <TextView
-            android:id="@+id/tv_about_subtitle"
+            android:id="@+id/tv_intro_subtitle"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/spacing_sm"
             android:gravity="center"
-            android:text="@string/about_subtitle"
+            android:text="@string/intro_subtitle"
             android:textAppearance="?attr/textAppearanceBodyLarge"
             android:textColor="?attr/colorOnSurfaceVariant"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/tv_about_title" />
+            app:layout_constraintTop_toBottomOf="@id/tv_intro_title" />
 
         <LinearLayout
-            android:id="@+id/layout_about_content"
+            android:id="@+id/layout_intro_content"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/spacing_xxl"
             android:orientation="vertical"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/tv_about_subtitle">
+            app:layout_constraintTop_toBottomOf="@id/tv_intro_subtitle">
 
-            <!-- RESEARCH SECTION -->
+            <!-- Section: What we measure -->
             <TextView
-                android:id="@+id/tv_research_header"
+                android:id="@+id/tv_point_analysis_header"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="@string/about_section_research"
+                android:text="@string/intro_section_measure"
                 android:textAppearance="?attr/textAppearanceTitleMedium"
                 android:textColor="?attr/colorPrimary" />
 
             <TextView
-                android:id="@+id/tv_research"
+                android:id="@+id/tv_point_analysis"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="@dimen/spacing_xs"
-                android:text="@string/about_research_purpose"
+                android:text="@string/intro_point_analysis"
                 android:textAppearance="?attr/textAppearanceBodyMedium"
                 android:textColor="?attr/colorOnSurface"
                 android:alpha="0.87" />
 
-            <!-- HOW IT WORKS SECTION -->
+            <!-- Section: Your daily target -->
             <TextView
-                android:id="@+id/tv_how_it_works_header"
+                android:id="@+id/tv_point_goal_header"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="@dimen/spacing_lg"
-                android:text="@string/about_section_how_it_works"
+                android:text="@string/intro_section_target"
                 android:textAppearance="?attr/textAppearanceTitleMedium"
                 android:textColor="?attr/colorPrimary" />
 
             <TextView
-                android:id="@+id/tv_reduction_goal"
+                android:id="@+id/tv_point_goal"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="@dimen/spacing_xs"
-                android:text="@string/about_reduction_goal"
+                android:text="@string/intro_point_goal"
                 android:textAppearance="?attr/textAppearanceBodyMedium"
                 android:textColor="?attr/colorOnSurface"
                 android:alpha="0.87" />
 
+            <!-- Short, condition-dependent note that appears under the target paragraph -->
             <TextView
-                android:id="@+id/tv_evaluation"
+                android:id="@+id/tv_goal_progress_subtext"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/spacing_sm"
-                android:text="@string/about_evaluation_process"
+                android:layout_marginTop="@dimen/spacing_xs"
+                android:text="@string/intro_point_progress_points"
                 android:textAppearance="?attr/textAppearanceBodyMedium"
                 android:textColor="?attr/colorOnSurface"
                 android:alpha="0.87" />
 
-            <!-- PRIVACY SECTION -->
+            <!-- Section: How points work -->
             <TextView
-                android:id="@+id/tv_privacy_header"
+                android:id="@+id/tv_point_progress_header"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="@dimen/spacing_lg"
-                android:text="@string/about_section_privacy"
+                android:text="@string/intro_section_points"
                 android:textAppearance="?attr/textAppearanceTitleMedium"
                 android:textColor="?attr/colorPrimary" />
 
             <TextView
-                android:id="@+id/tv_privacy"
+                android:id="@+id/tv_point_progress"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="@dimen/spacing_xs"
-                android:text="@string/about_privacy_statement"
-                android:textAppearance="?attr/textAppearanceBodyMedium"
-                android:textColor="?attr/colorOnSurface"
-                android:alpha="0.87" />
-            <!-- BUG REPORT SECTION -->
-            <TextView
-                android:id="@+id/tv_bug_report_header"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/spacing_lg"
-                android:text="@string/about_section_bug_report"
-                android:textAppearance="?attr/textAppearanceTitleMedium"
-                android:textColor="?attr/colorPrimary" />
-
-            <TextView
-                android:id="@+id/tv_bug_report"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/spacing_xs"
-                android:text="@string/about_bug_report"
+                android:text="@string/intro_point_progress_points"
                 android:textAppearance="?attr/textAppearanceBodyMedium"
                 android:textColor="?attr/colorOnSurface"
                 android:alpha="0.87" />
         </LinearLayout>
 
+        <com.google.android.material.checkbox.MaterialCheckBox
+            android:id="@+id/checkbox_acknowledged"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/spacing_xl"
+            android:text="@string/intro_acknowledge_label"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/layout_intro_content" />
+
         <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_contact"
+            android:id="@+id/btn_continue"
             android:layout_width="0dp"
             android:layout_height="@dimen/button_height_primary"
-            android:layout_marginTop="@dimen/spacing_xl"
+            android:layout_marginTop="@dimen/spacing_lg"
             android:layout_marginBottom="@dimen/spacing_lg"
-            android:text="@string/about_contact_button"
+            android:text="@string/intro_continue_button"
+            android:enabled="false"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/layout_about_content" />
+            app:layout_constraintTop_toBottomOf="@id/checkbox_acknowledged" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 

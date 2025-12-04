@@ -26,7 +26,7 @@ object Constants {
 	const val GOAL_REDUCTION_RATIO = 0.8 // Target 20% reduction by default
 
 	// Worker scheduling thresholds (seconds)
-	val USAGE_NOTIFICATION_THRESHOLDS = listOf(50, 75, 90)
+	val USAGE_NOTIFICATION_THRESHOLDS = listOf(80)
 	const val MAX_WORKER_RETRIES = 3
 	const val WORKER_IDLE_INTERVAL_SECONDS = 900L   // 15 minutes
 	const val WORKER_ACTIVE_INTERVAL_SECONDS = 300L   // 5 minutes

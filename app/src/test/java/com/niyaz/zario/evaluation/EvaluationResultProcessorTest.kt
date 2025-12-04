@@ -49,6 +49,7 @@ class EvaluationResultProcessorTest {
 
         coEvery { sessionRepository.adjustPoints(Constants.CONTROL_REWARD) } returns 100 + Constants.CONTROL_REWARD
         coEvery { sessionRepository.awaitSession() } returns loggedInSession()
+        coEvery { evaluationRepository.discardPendingFeedback(any()) } just runs
     }
 
     @After
@@ -106,6 +107,22 @@ class EvaluationResultProcessorTest {
         assertTrue(goalUpdates.isEmpty())
         coVerify(exactly = 1) { evaluationRepository.resetGoalSuccessStreak() }
     coVerify(exactly = 1) { remoteDataSource.syncCycleResult(any(), any(), any()) }
+    }
+
+    @Test
+    fun finalizeCycle_alwaysClearsPendingFeedbackBeforeCompleting() = runBlocking {
+        val plan = ScreenTimePlan(goalTimeMs = TimeUnit.HOURS.toMillis(2), dailyAverageMs = TimeUnit.HOURS.toMillis(3))
+
+        processor.finalizeCycle(
+            plan = plan,
+            finalUsageMs = TimeUnit.HOURS.toMillis(1),
+            evaluationStartTime = 5_000L,
+            evaluationEndTime = 6_000L,
+            hourlyUsage = emptyList()
+        )
+
+        coVerify(exactly = 1) { evaluationRepository.discardPendingFeedback(force = true) }
+        coVerify(exactly = 1) { evaluationRepository.markEvaluationCompleted(any()) }
     }
 
     private fun loggedInSession(): UserSession {

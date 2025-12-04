@@ -55,7 +55,9 @@ class UserSessionRepository @Inject constructor(
     }
 
     suspend fun setLoggedIn(user: User) {
+        var hasCompletedIntro = false
         dataStore.edit { prefs ->
+            hasCompletedIntro = prefs[PrefKeys.HAS_COMPLETED_INTRO] ?: false
             prefs[PrefKeys.LOGGED_IN] = true
             prefs[PrefKeys.EMAIL] = user.email
             prefs[PrefKeys.USER_ID] = user.id.ifBlank { UserIdentity.fromEmail(user.email) }
@@ -66,8 +68,9 @@ class UserSessionRepository @Inject constructor(
             prefs[PrefKeys.FLEXIBLE_REWARD] = user.flexibleReward
             prefs[PrefKeys.FLEXIBLE_PENALTY] = user.flexiblePenalty
             prefs[PrefKeys.HAS_SET_FLEXIBLE_STAKES] = user.hasSetFlexibleStakes
+            prefs[PrefKeys.HAS_COMPLETED_INTRO] = hasCompletedIntro
         }
-        _session.value = UserSession(isLoggedIn = true, user = user)
+        _session.value = UserSession(isLoggedIn = true, user = user, hasCompletedIntro = hasCompletedIntro)
     }
 
     suspend fun setFlexibleStakes(reward: Int, penalty: Int): Boolean {
@@ -171,6 +174,15 @@ class UserSessionRepository @Inject constructor(
         _session.value = UserSession()
     }
 
+    suspend fun markIntroCompleted() {
+        dataStore.edit { prefs ->
+            prefs[PrefKeys.HAS_COMPLETED_INTRO] = true
+        }
+        _session.value = _session.value.copy(hasCompletedIntro = true)
+    }
+
+    fun hasCompletedIntro(): Boolean = session.value.hasCompletedIntro
+
     private fun Preferences.toUserSession(): UserSession {
         val isLoggedIn = this[PrefKeys.LOGGED_IN] ?: false
         val user = if (isLoggedIn) {
@@ -188,7 +200,8 @@ class UserSessionRepository @Inject constructor(
                 hasSetFlexibleStakes = this[PrefKeys.HAS_SET_FLEXIBLE_STAKES] ?: false
             )
         } else null
-        return UserSession(isLoggedIn = isLoggedIn, user = user)
+        val hasCompletedIntro = this[PrefKeys.HAS_COMPLETED_INTRO] ?: false
+        return UserSession(isLoggedIn = isLoggedIn, user = user, hasCompletedIntro = hasCompletedIntro)
     }
 
     private object PrefKeys {
@@ -202,6 +215,7 @@ class UserSessionRepository @Inject constructor(
         val FLEXIBLE_REWARD = intPreferencesKey("flexible_reward")
         val FLEXIBLE_PENALTY = intPreferencesKey("flexible_penalty")
         val HAS_SET_FLEXIBLE_STAKES = booleanPreferencesKey("has_set_flexible_stakes")
+        val HAS_COMPLETED_INTRO = booleanPreferencesKey("has_completed_intro")
     }
 
     companion object {

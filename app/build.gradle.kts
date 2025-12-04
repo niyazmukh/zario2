@@ -24,7 +24,6 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.hilt.android)
     alias(libs.plugins.google.services)
-    alias(libs.plugins.android.baselineprofile)
     kotlin("kapt")
 }
 
@@ -36,8 +35,10 @@ android {
         applicationId = "com.niyaz.zario"
         minSdk = 29
         targetSdk = 35
-        versionCode = 13
-        versionName = "1.3.9"
+//        versionCode = 17
+//        versionName = "1.4.3"
+        versionCode = 1
+        versionName = "0.0.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
@@ -86,9 +87,11 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+
+            // Include native debug symbols so Play Console can symbolicate NDK crashes.
+            // Possible values: "NONE", "SYMBOL_TABLE" (smaller), "FULL" (most detail).
             ndk {
-                // Generate a compact symbol table for native crash resolution in Play Console.
-                debugSymbolLevel = "SYMBOL_TABLE"
+                debugSymbolLevel = "FULL"
             }
 
             val requestedRelease = isReleaseTaskRequested(gradle.startParameter.taskNames)
@@ -114,12 +117,6 @@ android {
         viewBinding = true
         buildConfig = true
     }
-    packaging {
-        jniLibs {
-            // Retain debug metadata for shipped native libraries so symbol zips are complete.
-            keepDebugSymbols += setOf("**/*.so")
-        }
-    }
 }
 
 kapt {
@@ -133,7 +130,6 @@ kapt {
 
 dependencies {
     implementation(project(":usage-core"))
-    baselineProfile(project(":baselineprofile"))
     implementation(platform("com.google.firebase:firebase-bom:34.4.0"))
     implementation("com.google.firebase:firebase-auth-ktx:23.1.0")
     implementation("com.google.firebase:firebase-firestore-ktx:25.1.0")
@@ -141,6 +137,7 @@ dependencies {
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
+    implementation(libs.androidx.activity.ktx)
     implementation(libs.material)
     implementation(libs.androidx.fragment.ktx)
     implementation(libs.androidx.navigation.fragment.ktx)

@@ -81,7 +81,8 @@ class AuthViewModelTest {
             gender = "Female",
             email = "signup@example.com",
             password = "SecurePass1",
-            confirmPassword = "SecurePass1"
+            confirmPassword = "SecurePass1",
+            referralNumber = "REF-001"
         )
 
         advanceUntilIdle()
@@ -92,6 +93,7 @@ class AuthViewModelTest {
                 assertEquals("signup@example.com", it.email)
                 assertEquals("1994", it.yearOfBirth)
                 assertEquals("Female", it.gender)
+                assertEquals("REF-001", it.referralNumber)
                 true
             })
         }

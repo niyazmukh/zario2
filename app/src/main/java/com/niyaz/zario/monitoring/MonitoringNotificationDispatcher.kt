@@ -2,6 +2,7 @@ package com.niyaz.zario.monitoring
 
 import android.content.Context
 import com.niyaz.zario.data.ScreenTimePlan
+import com.niyaz.zario.core.evaluation.EvaluationResultProcessor
 
 /**
  * Abstraction over notification side effects performed during usage monitoring.
@@ -19,7 +20,6 @@ interface MonitoringNotificationDispatcher {
 	fun notifyCycleCompletionNow(
 		context: Context,
 		plan: ScreenTimePlan,
-		finalUsageMs: Long
+		result: EvaluationResultProcessor.Result
 	)
 }
-

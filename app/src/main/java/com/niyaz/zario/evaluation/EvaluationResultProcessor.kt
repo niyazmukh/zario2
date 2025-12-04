@@ -27,6 +27,8 @@ class EvaluationResultProcessor @Inject constructor(
         val goalTimeMs: Long,
         val finalUsageMs: Long,
         val metGoal: Boolean,
+        val pointsDelta: Int,
+        val condition: Condition,
         val nextCycleStartTime: Long,
         val newPointBalance: Int
     )
@@ -41,8 +43,7 @@ class EvaluationResultProcessor @Inject constructor(
         val session: UserSession = sessionRepository.awaitSession()
         val user = session.user
         val userEmail = user?.email.orEmpty()
-        val existingUserId = user?.id ?: ""
-        val userId = if (existingUserId.isNotBlank()) existingUserId else UserIdentity.fromEmail(userEmail)
+        val userId = UserIdentity.candidateIds(user?.id, userEmail).firstOrNull() ?: ""
         val goalTime = plan.goalTimeMs
         val metGoal = if (goalTime > 0) finalUsageMs <= goalTime else false
 
@@ -84,6 +85,8 @@ class EvaluationResultProcessor @Inject constructor(
             remoteDataSource.syncCycleResult(historyEntry, hourlyEntries, newBalance)
         }
 
+        evaluationRepository.discardPendingFeedback(force = true)
+
         if (metGoal) {
             val streak = evaluationRepository.incrementGoalSuccessStreak()
             if (streak >= STREAK_THRESHOLD) {
@@ -112,6 +115,8 @@ class EvaluationResultProcessor @Inject constructor(
             goalTimeMs = goalTime,
             finalUsageMs = finalUsageMs,
             metGoal = metGoal,
+            pointsDelta = delta,
+            condition = condition,
             nextCycleStartTime = nextCycleStart,
             newPointBalance = newBalance
         )

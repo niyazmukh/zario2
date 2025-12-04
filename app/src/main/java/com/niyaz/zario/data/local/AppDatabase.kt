@@ -9,8 +9,10 @@ import com.niyaz.zario.data.local.dao.RemoteSyncDao
 import com.niyaz.zario.data.local.entities.AppUsageHourlyEntry
 import com.niyaz.zario.data.local.entities.EvaluationHistoryEntry
 import com.niyaz.zario.data.local.entities.HourlySyncStateEntity
+import com.niyaz.zario.data.local.entities.PendingAppInteractionEntity
 import com.niyaz.zario.data.local.entities.PendingCycleSyncEntity
 import com.niyaz.zario.data.local.entities.PendingHourlySyncEntity
+import com.niyaz.zario.data.local.entities.PendingNotificationEventEntity
 
 @Database(
     entities = [
@@ -18,9 +20,11 @@ import com.niyaz.zario.data.local.entities.PendingHourlySyncEntity
         AppUsageHourlyEntry::class,
         PendingCycleSyncEntity::class,
         PendingHourlySyncEntity::class,
-        HourlySyncStateEntity::class
+        HourlySyncStateEntity::class,
+        PendingAppInteractionEntity::class,
+        PendingNotificationEventEntity::class
     ],
-    version = 6,
+    version = 7,
     exportSchema = true
 )
 @TypeConverters(RemoteSyncTypeConverters::class)

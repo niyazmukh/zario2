@@ -29,4 +29,7 @@ interface HourlyUsageDao {
 
     @Query("DELETE FROM hourly_app_usage WHERE userId = :userId AND cycleStartTime = :cycleStart")
     suspend fun deleteCycleUsage(userId: String, cycleStart: Long)
+
+    @Query("DELETE FROM hourly_app_usage WHERE cycleStartTime < :threshold")
+    suspend fun deleteUsageBefore(threshold: Long)
 }

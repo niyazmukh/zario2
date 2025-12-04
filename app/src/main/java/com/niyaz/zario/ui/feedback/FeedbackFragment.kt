@@ -33,8 +33,17 @@ class FeedbackFragment : Fragment() {
 
     private val backCallback = object : OnBackPressedCallback(true) {
         override fun handleOnBackPressed() {
-            // Navigate back to intervention screen
-            navigateToIntervention()
+            // Persist feedback viewed before leaving via system back
+            isEnabled = false
+            viewLifecycleOwner.lifecycleScope.launch {
+                try {
+                    evaluationRepository.markFeedbackViewed()
+                } finally {
+                    if (isAdded) {
+                        navigateToIntervention()
+                    }
+                }
+            }
         }
     }
 
@@ -55,11 +64,6 @@ class FeedbackFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         
-        // Mark feedback as viewed when screen is displayed
-        viewLifecycleOwner.lifecycleScope.launch {
-            evaluationRepository.markFeedbackViewed()
-        }
-        
         setupHeader()
         setupClickListeners()
         observeViewModel()
@@ -75,7 +79,17 @@ class FeedbackFragment : Fragment() {
 
     private fun setupClickListeners() {
         binding.btnContinue.setOnClickListener {
-            navigateToIntervention()
+            // Ensure feedback is persistently marked as viewed before leaving this screen
+            binding.btnContinue.isEnabled = false
+            viewLifecycleOwner.lifecycleScope.launch {
+                try {
+                    evaluationRepository.markFeedbackViewed()
+                } finally {
+                    if (isAdded) {
+                        navigateToIntervention()
+                    }
+                }
+            }
         }
     }
 
@@ -116,19 +130,31 @@ class FeedbackFragment : Fragment() {
 
             // Points Change
             if (feedbackData.showPointsChange) {
-                tvPointsChange.text = if (feedbackData.pointsChange >= 0) {
-                    getString(R.string.feedback_points_earned, feedbackData.pointsChange)
-                } else {
-                    getString(R.string.feedback_points_lost, kotlin.math.abs(feedbackData.pointsChange))
+                // For zero, show neutral copy; otherwise show earned/lost with sign formatting.
+                tvPointsChange.text = when {
+                    feedbackData.pointsChange == 0 -> getString(R.string.feedback_points_neutral)
+                    feedbackData.pointsChange > 0 -> getString(R.string.feedback_points_earned, feedbackData.pointsChange)
+                    else -> getString(R.string.feedback_points_lost, kotlin.math.abs(feedbackData.pointsChange))
                 }
 
-                val pointsColor = if (feedbackData.pointsChange >= 0) {
-                    requireContext().getColor(R.color.evaluation_success)
-                } else {
-                    requireContext().getColor(R.color.evaluation_exceeded)
+                // Resolve neutral (theme) color for zero, success for positive, exceeded for negative
+                val neutralColor = MaterialColors.getColor(tvPointsChange, com.google.android.material.R.attr.colorOnSurfaceVariant)
+                val pointsColor = when {
+                    feedbackData.pointsChange > 0 -> requireContext().getColor(R.color.evaluation_success)
+                    feedbackData.pointsChange < 0 -> requireContext().getColor(R.color.evaluation_exceeded)
+                    else -> neutralColor
                 }
+
                 tvPointsChange.setTextColor(pointsColor)
-                animatePointsChange(tvPointsChange, feedbackData.pointsChange >= 0)
+
+                // Animate only when there's a non-zero change; for zero show the default (no bounce)
+                if (feedbackData.pointsChange != 0) {
+                    animatePointsChange(tvPointsChange, feedbackData.pointsChange > 0)
+                } else {
+                    tvPointsChange.scaleX = 1f
+                    tvPointsChange.scaleY = 1f
+                    tvPointsChange.alpha = 1f
+                }
             } else {
                 tvPointsChange.text = getString(R.string.feedback_points_not_applicable)
                 val neutralColor = MaterialColors.getColor(tvPointsChange, com.google.android.material.R.attr.colorOnSurfaceVariant)

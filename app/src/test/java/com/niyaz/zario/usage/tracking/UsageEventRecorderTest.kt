@@ -7,11 +7,13 @@ import com.niyaz.zario.usage.ingest.model.TrackedEvent
 import com.niyaz.zario.usage.storage.UsageRawEventDao
 import io.mockk.coVerify
 import io.mockk.mockk
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class UsageEventRecorderTest {
 
     @Test

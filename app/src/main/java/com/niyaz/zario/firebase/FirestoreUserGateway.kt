@@ -136,6 +136,36 @@ class FirestoreUserGateway @Inject constructor(
         }
     }
 
+    suspend fun recordAppInteractions(userId: String, events: List<Map<String, Any?>>) {
+        if (events.isEmpty()) return
+        val interactions = userDocument(userId).collection(FirestoreCollections.APP_INTERACTIONS)
+        events.chunked(MAX_EVENT_BATCH).forEach { chunk ->
+            withFirebaseTimeout {
+                firestore.runBatch { batch ->
+                    chunk.forEach { event ->
+                        val doc = interactions.document()
+                        batch.set(doc, event, SetOptions.merge())
+                    }
+                }.await()
+            }
+        }
+    }
+
+    suspend fun recordNotificationEvents(userId: String, events: List<Map<String, Any?>>) {
+        if (events.isEmpty()) return
+        val notifications = userDocument(userId).collection(FirestoreCollections.NOTIFICATION_EVENTS)
+        events.chunked(MAX_EVENT_BATCH).forEach { chunk ->
+            withFirebaseTimeout {
+                firestore.runBatch { batch ->
+                    chunk.forEach { event ->
+                        val doc = notifications.document()
+                        batch.set(doc, event, SetOptions.merge())
+                    }
+                }.await()
+            }
+        }
+    }
+
     data class RemoteUserState(
         val plan: ScreenTimePlan?,
         val goalSuccessStreak: Int?,
@@ -199,6 +229,7 @@ class FirestoreUserGateway @Inject constructor(
 }
 
 private const val MAX_HOURLY_BATCH = 400
+private const val MAX_EVENT_BATCH = 100
 
 private fun hourlyDocumentId(prefix: String, entry: Map<String, Any?>, fallbackIndex: Int): String {
     val hourStart = (entry["hourStartTime"] as? Number)?.toLong()

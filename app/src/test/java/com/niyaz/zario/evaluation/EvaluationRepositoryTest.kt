@@ -93,4 +93,14 @@ class EvaluationRepositoryTest {
         coVerify { cycleStateStore.markFeedbackViewed() }
         coVerify { cycleStateStore.resetCompletionFlags(true) }
     }
+
+    @Test
+    fun pruneOldHourlyUsage_delegatesToDao() = runTest {
+        val threshold = 12345L
+        coEvery { hourlyUsageDao.deleteUsageBefore(any()) } just runs
+
+        repository.pruneOldHourlyUsage(threshold)
+
+        coVerify { hourlyUsageDao.deleteUsageBefore(threshold) }
+    }
 }

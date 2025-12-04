@@ -8,7 +8,7 @@ data class User(
     val yearOfBirth: String,
     val gender: String,
     val condition: Condition = Condition.CONTROL,
-    val points: Int = 560,
+    val points: Int = 840,
     val hasNotificationPermission: Boolean = false,
     val hasUsageStatsPermission: Boolean = false,
     val flexibleReward: Int = Constants.FLEXIBLE_REWARD,
@@ -18,5 +18,6 @@ data class User(
 
 data class UserSession(
     val isLoggedIn: Boolean = false,
-    val user: User? = null
+    val user: User? = null,
+    val hasCompletedIntro: Boolean = false
 )

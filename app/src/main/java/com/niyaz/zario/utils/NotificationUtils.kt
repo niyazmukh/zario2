@@ -11,11 +11,15 @@ import android.media.RingtoneManager
 import android.os.PowerManager
 import android.util.Log
 import androidx.core.app.NotificationCompat
-import androidx.core.app.TaskStackBuilder
 import com.niyaz.zario.Constants
-import com.niyaz.zario.MainActivity
 import com.niyaz.zario.R
+import com.niyaz.zario.data.Condition
 import com.niyaz.zario.data.ScreenTimePlan
+import com.niyaz.zario.core.evaluation.EvaluationResultProcessor
+import com.niyaz.zario.data.local.entities.NotificationCategory
+import com.niyaz.zario.monitoring.NotificationInteractionReceiver
+import kotlin.math.absoluteValue
+import org.json.JSONObject
 
 object NotificationUtils {
 
@@ -144,7 +148,20 @@ object NotificationUtils {
         ensureChannel(context)
 
         val nm = notificationManager(context)
-        val pendingIntent = createMainActivityPendingIntent(context)
+        val metadata = mapOf(
+            "planLabel" to plan.label,
+            "goalTimeMs" to plan.goalTimeMs,
+            "currentUsageMs" to currentUsageMs,
+            "thresholdPercent" to thresholdPercent
+        )
+        val pendingIntent = createNotificationTapPendingIntent(
+            context = context,
+            category = NotificationCategory.USAGE_THRESHOLD,
+            notificationId = Constants.NOTIFICATION_ID_USAGE_THRESHOLD,
+            channelId = Constants.NOTIFICATION_CHANNEL_ID_EVALUATION_ALERTS,
+            navigateTo = "intervention",
+            metadata = metadata
+        )
 
         val usageFormatted = TimeUtils.formatTimeForDisplay(context, currentUsageMs)
         val goalFormatted = TimeUtils.formatTimeForDisplay(context, plan.goalTimeMs)
@@ -216,10 +233,10 @@ object NotificationUtils {
     fun sendEvaluationCycleCompletedNow(
         context: Context,
         plan: ScreenTimePlan,
-        totalUsageMs: Long
+        result: EvaluationResultProcessor.Result
     ) {
         withWakeLock(context) {
-            postEvaluationCycleCompletedNowInternal(context, plan, totalUsageMs)
+            postEvaluationCycleCompletedNowInternal(context, plan, result)
         }
         Log.i(TAG, "Cycle completion notification sent immediately")
     }
@@ -231,31 +248,53 @@ object NotificationUtils {
     private fun postEvaluationCycleCompletedNowInternal(
         context: Context,
         plan: ScreenTimePlan,
-        totalUsageMs: Long
+        result: EvaluationResultProcessor.Result
     ) {
         ensureChannel(context)
 
         val nm = notificationManager(context)
-        val pendingIntent = createMainActivityPendingIntent(context) {
-            putExtra("navigate_to", "feedback")
-        }
+        val metadata = mapOf(
+            "planLabel" to plan.label,
+            "goalTimeMs" to plan.goalTimeMs,
+            "finalUsageMs" to result.finalUsageMs,
+            "pointsDelta" to result.pointsDelta,
+            "metGoal" to result.metGoal
+        )
+        val pendingIntent = createNotificationTapPendingIntent(
+            context = context,
+            category = NotificationCategory.CYCLE_COMPLETION,
+            notificationId = Constants.NOTIFICATION_ID_EVALUATION_COMPLETE,
+            channelId = Constants.NOTIFICATION_CHANNEL_ID_EVALUATION_ALERTS,
+            navigateTo = "feedback",
+            metadata = metadata
+        )
 
         // Build notification content based on available data
+        val totalUsageMs = result.finalUsageMs
         val contentText = if (totalUsageMs > 0) {
             val usageFormatted = TimeUtils.formatTimeForDisplay(context, totalUsageMs)
             val goalFormatted = TimeUtils.formatTimeForDisplay(context, plan.goalTimeMs)
-            "You used $usageFormatted (goal: $goalFormatted). Tap to provide feedback."
+            context.getString(
+                R.string.notification_cycle_usage_summary,
+                usageFormatted,
+                goalFormatted
+            )
         } else {
             context.getString(R.string.notification_cycle_complete_content)
         }
 
+        val title = resolveCycleCompletionTitle(context, result)
+
         val notification = buildEvaluationNotification(
             context,
-            context.getString(R.string.notification_cycle_complete_title),
+            title,
             contentText,
             pendingIntent
         ).build()
 
+        // Explicitly cancel the previous cycle completion notification so the latest payload
+        // always replaces the prior one, even if the system failed to coalesce duplicates.
+        nm.cancel(Constants.NOTIFICATION_ID_EVALUATION_COMPLETE)
         nm.notify(Constants.NOTIFICATION_ID_EVALUATION_COMPLETE, notification)
         Log.i(TAG, "Posted evaluation cycle completed notification with wakelock")
     }
@@ -264,15 +303,33 @@ object NotificationUtils {
     private fun notificationManager(context: Context): NotificationManager =
         context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-    private fun createMainActivityPendingIntent(
+    private fun createNotificationTapPendingIntent(
         context: Context,
-        intentExtras: Intent.() -> Unit = {}
+        category: NotificationCategory,
+        notificationId: Int,
+        channelId: String,
+        navigateTo: String?,
+        metadata: Map<String, Any?>
     ): PendingIntent? {
-        val intent = Intent(context, MainActivity::class.java).apply(intentExtras)
-        return TaskStackBuilder.create(context).run {
-            addNextIntentWithParentStack(intent)
-            getPendingIntent(0, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val metadataJson = metadata.toJsonString()
+        // Direct intent to MainActivity to avoid notification trampoline restrictions (Android 12+)
+        val intent = Intent(context, com.niyaz.zario.MainActivity::class.java).apply {
+            flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra("navigate_to", navigateTo)
+            
+            // Extras for logging in MainActivity
+            putExtra(NotificationInteractionReceiver.EXTRA_CATEGORY, category.name)
+            putExtra(NotificationInteractionReceiver.EXTRA_NOTIFICATION_ID, notificationId)
+            putExtra(NotificationInteractionReceiver.EXTRA_CHANNEL_ID, channelId)
+            putExtra(NotificationInteractionReceiver.EXTRA_METADATA, metadataJson)
         }
+        
+        return PendingIntent.getActivity(
+            context,
+            notificationId,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
     }
 
     private fun buildEvaluationNotification(
@@ -290,4 +347,28 @@ object NotificationUtils {
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
     }
-} 
+
+    private fun resolveCycleCompletionTitle(
+        context: Context,
+        result: EvaluationResultProcessor.Result
+    ): String {
+        return when {
+            result.condition == Condition.BENCHMARK && result.metGoal ->
+                context.getString(R.string.notification_cycle_benchmark_met)
+            result.condition == Condition.BENCHMARK && !result.metGoal ->
+                context.getString(R.string.notification_cycle_benchmark_missed)
+            result.pointsDelta > 0 ->
+                context.getString(R.string.notification_cycle_points_earned, result.pointsDelta)
+            result.pointsDelta < 0 ->
+                context.getString(R.string.notification_cycle_points_lost, result.pointsDelta.absoluteValue)
+            else -> context.getString(R.string.notification_cycle_points_neutral)
+        }
+    }
+}
+
+private fun Map<String, Any?>?.toJsonString(): String? {
+    if (this == null || this.isEmpty()) return null
+    val json = org.json.JSONObject()
+    this.forEach { (key, value) -> json.put(key, value) }
+    return json.toString()
+}

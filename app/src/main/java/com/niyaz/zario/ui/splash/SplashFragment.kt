@@ -75,8 +75,12 @@ class SplashFragment : Fragment() {
             return@withContext
         }
 
-    if (!evaluationRepository.hasPlanConfigured()) {
-            navigateSafely(R.id.action_splash_to_target)
+        if (!evaluationRepository.hasPlanConfigured()) {
+            if (!session.hasCompletedIntro) {
+                navigateSafely(R.id.action_splash_to_intro)
+            } else {
+                navigateSafely(R.id.action_splash_to_target)
+            }
             return@withContext
         }
 

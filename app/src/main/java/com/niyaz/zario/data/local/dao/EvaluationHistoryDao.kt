@@ -81,4 +81,25 @@ interface EvaluationHistoryDao {
             }
             streak
         }
+
+    @Query(
+        """
+        SELECT * FROM evaluation_history
+        WHERE userId IN (:userIds)
+           OR (userEmail = :userEmail AND userId = '')
+        ORDER BY evaluationEndTime DESC
+        LIMIT 1
+        """
+    )
+    fun observeLatestForUser(userIds: List<String>, userEmail: String): Flow<EvaluationHistoryEntry?>
+
+    @Query(
+        """
+        SELECT metGoal FROM evaluation_history
+        WHERE userId IN (:userIds)
+           OR (userEmail = :userEmail AND userId = '')
+        ORDER BY evaluationEndTime DESC
+        """
+    )
+    fun observeGoalResultsForUser(userIds: List<String>, userEmail: String): Flow<List<Boolean>>
 }

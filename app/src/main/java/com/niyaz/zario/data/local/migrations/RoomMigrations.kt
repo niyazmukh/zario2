@@ -182,6 +182,48 @@ object RoomMigrations {
         )
     }
 
+    private fun migrateToVersion7(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `pending_app_interaction` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `userId` TEXT NOT NULL,
+                `userEmail` TEXT NOT NULL,
+                `occurredAt` INTEGER NOT NULL,
+                `source` TEXT NOT NULL,
+                `appVersionName` TEXT,
+                `appVersionCode` INTEGER,
+                `attempts` INTEGER NOT NULL DEFAULT 0,
+                `lastAttemptAt` INTEGER,
+                `createdAt` INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
+
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `pending_notification_event` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `userId` TEXT NOT NULL,
+                `userEmail` TEXT NOT NULL,
+                `occurredAt` INTEGER NOT NULL,
+                `eventType` TEXT NOT NULL,
+                `category` TEXT NOT NULL,
+                `notificationId` INTEGER NOT NULL,
+                `channelId` TEXT NOT NULL,
+                `metadataJson` TEXT,
+                `attempts` INTEGER NOT NULL DEFAULT 0,
+                `lastAttemptAt` INTEGER,
+                `createdAt` INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
+
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_pending_notification_event_category` ON `pending_notification_event`(`category`)"
+        )
+    }
+
     val MIGRATION_1_5: Migration = object : Migration(1, 5) {
         override fun migrate(db: SupportSQLiteDatabase) = migrateToVersion5(db)
     }
@@ -202,11 +244,16 @@ object RoomMigrations {
         override fun migrate(db: SupportSQLiteDatabase) = migrateToVersion6(db)
     }
 
+    val MIGRATION_6_7: Migration = object : Migration(6, 7) {
+        override fun migrate(db: SupportSQLiteDatabase) = migrateToVersion7(db)
+    }
+
     val ALL: Array<Migration> = arrayOf(
         MIGRATION_1_5,
         MIGRATION_2_5,
         MIGRATION_3_5,
         MIGRATION_4_5,
-        MIGRATION_5_6
+        MIGRATION_5_6,
+        MIGRATION_6_7
     )
 }

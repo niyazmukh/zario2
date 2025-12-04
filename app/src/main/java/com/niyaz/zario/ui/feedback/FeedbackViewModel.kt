@@ -8,10 +8,19 @@ import com.niyaz.zario.domain.PointsCalculator
 import com.niyaz.zario.repository.UserSessionRepository
 import com.niyaz.zario.security.UserIdentity
 import dagger.hilt.android.lifecycle.HiltViewModel
+import com.niyaz.zario.data.User
+import com.niyaz.zario.data.local.entities.EvaluationHistoryEntry
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -44,85 +53,108 @@ class FeedbackViewModel @Inject constructor(
         loadLatestCycleResults()
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     private fun loadLatestCycleResults() {
         viewModelScope.launch {
-            try {
-                val user = userSessionRepository.session.value.user ?: return@launch
-                val userEmail = user.email
-                val condition = user.condition
-                val candidateIds = UserIdentity.candidateIds(user.id, userEmail)
-                val idsForQuery = if (candidateIds.isEmpty()) listOf(EMPTY_ID_SENTINEL) else candidateIds
-                
-                // Get all history entries for this user, ordered by end time descending
-                val allHistory = historyDao.getAllForUser(idsForQuery, userEmail).first()
-                
-                if (allHistory.isEmpty()) {
-                    _feedbackData.value = FeedbackData(
-                        goalMet = false,
-                        pointsChange = 0,
-                        goalStreak = 0,
-                        planLabel = ""
-                    )
-                    return@launch
+            userSessionRepository.session
+                .map { it.user }
+                .distinctUntilChanged()
+                .flatMapLatest { user ->
+                    if (user == null) {
+                        flowOf(FeedbackStream.NoUser)
+                    } else {
+                        val userEmail = user.email
+                        val candidateIds = UserIdentity.candidateIds(user.id, userEmail)
+                        val idsForQuery = if (candidateIds.isEmpty()) listOf(EMPTY_ID_SENTINEL) else candidateIds
+
+                        combine(
+                            historyDao.observeLatestForUser(idsForQuery, userEmail),
+                            historyDao.observeGoalResultsForUser(idsForQuery, userEmail)
+                        ) { latest, goals ->
+                            if (latest == null) {
+                                FeedbackStream.Empty
+                            } else {
+                                FeedbackStream.Data(user, latest, goals)
+                            }
+                        }.catch { emit(FeedbackStream.Error(it)) }
+                    }
                 }
-
-                // Latest entry is the first one (ordered by evaluationEndTime DESC)
-                val latestEntry = allHistory.first()
-                
-                // Calculate points change based on condition and goal achievement
-                val showPoints = condition != Condition.BENCHMARK
-                val pointsChange = if (showPoints) {
-                    PointsCalculator.calculateDelta(
-                        condition = condition,
-                        metGoal = latestEntry.metGoal,
-                        flexibleReward = user.flexibleReward,
-                        flexiblePenalty = user.flexiblePenalty
-                    )
-                } else {
-                    0
+                .collectLatest { stream ->
+                    when (stream) {
+                        FeedbackStream.NoUser, FeedbackStream.Empty -> emitEmptyFeedback()
+                        is FeedbackStream.Error -> emitErrorFeedback()
+                        is FeedbackStream.Data -> emitFeedbackFromHistory(stream.user, stream.latest, stream.goals)
+                    }
                 }
-
-                // Calculate goal streak (consecutive goals met from most recent backwards)
-                val goalStreak = calculateGoalStreak(allHistory)
-
-                _feedbackData.value = FeedbackData(
-                    goalMet = latestEntry.metGoal,
-                    pointsChange = pointsChange,
-                    goalStreak = goalStreak,
-                    planLabel = latestEntry.planLabel,
-                    showPointsChange = showPoints
-                )
-
-            } catch (e: Exception) {
-                // Handle error gracefully
-                _feedbackData.value = FeedbackData(
-                    goalMet = false,
-                    pointsChange = 0,
-                    goalStreak = 0,
-                    planLabel = "",
-                    showPointsChange = false
-                )
-            }
         }
+    }
+
+    private fun emitFeedbackFromHistory(user: User, latestEntry: EvaluationHistoryEntry, goals: List<Boolean>) {
+        val showPoints = user.condition != Condition.BENCHMARK
+        val pointsChange = if (showPoints) {
+            PointsCalculator.calculateDelta(
+                condition = user.condition,
+                metGoal = latestEntry.metGoal,
+                flexibleReward = user.flexibleReward,
+                flexiblePenalty = user.flexiblePenalty
+            )
+        } else {
+            0
+        }
+        val goalStreak = calculateGoalStreak(goals)
+
+        _feedbackData.value = FeedbackData(
+            goalMet = latestEntry.metGoal,
+            pointsChange = pointsChange,
+            goalStreak = goalStreak,
+            planLabel = latestEntry.planLabel,
+            showPointsChange = showPoints,
+            isLoading = false
+        )
+    }
+
+    private fun emitEmptyFeedback() {
+        _feedbackData.value = FeedbackData(
+            goalMet = false,
+            pointsChange = 0,
+            goalStreak = 0,
+            planLabel = "",
+            isLoading = false,
+            showPointsChange = true
+        )
+    }
+
+    private fun emitErrorFeedback() {
+        _feedbackData.value = FeedbackData(
+            goalMet = false,
+            pointsChange = 0,
+            goalStreak = 0,
+            planLabel = "",
+            isLoading = false,
+            showPointsChange = false
+        )
+    }
+
+    private sealed interface FeedbackStream {
+        data object NoUser : FeedbackStream
+        data object Empty : FeedbackStream
+        data class Data(val user: User, val latest: EvaluationHistoryEntry, val goals: List<Boolean>) : FeedbackStream
+        data class Error(val error: Throwable) : FeedbackStream
     }
 
     /**
      * Calculates the current goal streak by counting consecutive successful goals
      * from the most recent evaluation backwards.
      */
-    private fun calculateGoalStreak(historyEntries: List<com.niyaz.zario.data.local.entities.EvaluationHistoryEntry>): Int {
+    private fun calculateGoalStreak(goals: List<Boolean>): Int {
         var streak = 0
-        
-        // Count consecutive goals met from the most recent entry backwards
-        for (entry in historyEntries) {
-            if (entry.metGoal) {
+        for (metGoal in goals) {
+            if (metGoal) {
                 streak++
             } else {
-                // Streak broken, stop counting
                 break
             }
         }
-        
         return streak
     }
 

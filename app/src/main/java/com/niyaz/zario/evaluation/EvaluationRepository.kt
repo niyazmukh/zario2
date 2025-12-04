@@ -14,11 +14,13 @@ import com.niyaz.zario.utils.CalendarUtils
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.withContext
 
 @Singleton
 class EvaluationRepository @Inject constructor(
@@ -85,7 +87,19 @@ class EvaluationRepository @Inject constructor(
         val plan = snapshot.plan ?: return false
         val start = plan.evaluationStartTime ?: return false
         val now = System.currentTimeMillis()
-        return !snapshot.evaluationCompleted && now >= start
+
+        if (snapshot.evaluationCompleted) {
+            // If the evaluation is marked completed, check if it corresponds to the current cycle.
+            // If the completion time is before the current start time, it's a stale flag from
+            // a previous cycle, so the current cycle is actually active.
+            val completionTime = snapshot.evaluationCompletionTime
+            if (completionTime != null && completionTime < start) {
+                return now >= start
+            }
+            return false
+        }
+
+        return now >= start
     }
 
     suspend fun isEvaluationExpired(): Boolean {
@@ -152,8 +166,20 @@ class EvaluationRepository @Inject constructor(
     }
 
     suspend fun markFeedbackViewed() {
-        cycleStateStore.markFeedbackViewed()
-        cycleStateStore.resetCompletionFlags(forceClear = true)
+        persistFeedbackConsumed()
+    }
+
+    suspend fun discardPendingFeedback(force: Boolean = false) {
+        if (!force && !hasUnviewedCompletedEvaluation()) return
+        persistFeedbackConsumed()
+    }
+
+    private suspend fun persistFeedbackConsumed() {
+        // Ensure persistence even if caller scope is cancelled during navigation/app close
+        withContext(NonCancellable) {
+            cycleStateStore.markFeedbackViewed()
+            cycleStateStore.resetCompletionFlags(forceClear = true)
+        }
     }
 
     suspend fun recordCycleResult(entry: EvaluationHistoryEntry) {
@@ -183,6 +209,10 @@ class EvaluationRepository @Inject constructor(
     }
 
     suspend fun updateGoalTime(goalTimeMs: Long) = cycleStateStore.updateGoalTime(goalTimeMs)
+
+    suspend fun pruneOldHourlyUsage(threshold: Long) {
+        hourlyUsageDao.deleteUsageBefore(threshold)
+    }
 
     suspend fun startNextCycle(nextCycleStartTime: Long? = null): ScreenTimePlan? {
         val snapshot = planPreferencesDataSource.latest()

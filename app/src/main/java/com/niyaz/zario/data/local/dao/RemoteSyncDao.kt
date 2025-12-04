@@ -10,9 +10,11 @@ import androidx.room.Relation
 import androidx.room.Transaction
 import androidx.room.Update
 import com.niyaz.zario.data.local.entities.HourlySyncStateEntity
+import com.niyaz.zario.data.local.entities.PendingAppInteractionEntity
 import com.niyaz.zario.data.local.entities.PendingCycleSyncEntity
 import com.niyaz.zario.data.local.entities.PendingHourlySyncEntity
 import com.niyaz.zario.data.local.entities.PendingHourlySyncEntity.SyncType
+import com.niyaz.zario.data.local.entities.PendingNotificationEventEntity
 
 @Dao
 interface RemoteSyncDao {
@@ -80,12 +82,56 @@ interface RemoteSyncDao {
     @Query("DELETE FROM hourly_sync_state")
     suspend fun deleteAllStates()
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAppInteraction(entity: PendingAppInteractionEntity): Long
+
+    @Query("SELECT * FROM pending_app_interaction ORDER BY createdAt LIMIT :limit")
+    suspend fun loadPendingAppInteractions(limit: Int): List<PendingAppInteractionEntity>
+
+    @Update
+    suspend fun updateAppInteraction(entity: PendingAppInteractionEntity)
+
+    @Delete
+    suspend fun deleteAppInteractions(entities: List<PendingAppInteractionEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertNotificationEvent(entity: PendingNotificationEventEntity): Long
+
+    @Query("SELECT * FROM pending_notification_event ORDER BY createdAt LIMIT :limit")
+    suspend fun loadPendingNotificationEvents(limit: Int): List<PendingNotificationEventEntity>
+
+    @Update
+    suspend fun updateNotificationEvent(entity: PendingNotificationEventEntity)
+
+    @Delete
+    suspend fun deleteNotificationEvents(entities: List<PendingNotificationEventEntity>)
+
     @Transaction
     suspend fun clearAll() {
         deleteAllHourly()
         deleteAllCycles()
         deleteAllStates()
+        deleteAllAppInteractions()
+        deleteAllNotificationEvents()
     }
+
+    @Query("DELETE FROM pending_app_interaction")
+    suspend fun deleteAllAppInteractions()
+
+    @Query("DELETE FROM pending_notification_event")
+    suspend fun deleteAllNotificationEvents()
+
+    @Query("DELETE FROM pending_cycle_sync WHERE createdAt < :threshold")
+    suspend fun deleteOldCycles(threshold: Long)
+
+    @Query("DELETE FROM pending_hourly_sync WHERE createdAt < :threshold")
+    suspend fun deleteOldHourly(threshold: Long)
+
+    @Query("DELETE FROM pending_app_interaction WHERE createdAt < :threshold")
+    suspend fun deleteOldAppInteractions(threshold: Long)
+
+    @Query("DELETE FROM pending_notification_event WHERE createdAt < :threshold")
+    suspend fun deleteOldNotificationEvents(threshold: Long)
 
     data class PendingCycleWithHourly(
         @Embedded val cycle: PendingCycleSyncEntity,

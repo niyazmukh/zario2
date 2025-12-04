@@ -20,7 +20,8 @@
         <item name="colorOnSurfaceVariant">@color/black</item>
         
         <!-- Status bar color. -->
-        <item name="android:statusBarColor">?attr/colorPrimary</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
         
         <!-- Android 12+ Splash Screen API -->
         <item name="android:windowSplashScreenBackground">?attr/colorSurface</item>

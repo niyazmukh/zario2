@@ -72,17 +72,23 @@ class FirebaseAuthRepository @Inject constructor(
         condition = condition
     )
 
-    private fun SignupRequest.toProfilePayload(): Map<String, Any?> = mapOf(
-        FirestoreFields.EMAIL to email,
-        FirestoreFields.YEAR_OF_BIRTH to yearOfBirth,
-        FirestoreFields.GENDER to gender,
-        FirestoreFields.CONDITION to condition.name,
-        FirestoreFields.POINTS_BALANCE to FirestoreDefaults.INITIAL_POINTS_BALANCE,
-        FirestoreFields.FLEXIBLE_REWARD to Constants.FLEXIBLE_REWARD,
-        FirestoreFields.FLEXIBLE_PENALTY to Constants.FLEXIBLE_PENALTY,
-        FirestoreFields.HAS_SET_FLEXIBLE_STAKES to false,
-        FirestoreFields.GOAL_SUCCESS_STREAK to 0
-    )
+    private fun SignupRequest.toProfilePayload(): Map<String, Any?> {
+        val payload = mutableMapOf<String, Any?>(
+            FirestoreFields.EMAIL to email,
+            FirestoreFields.YEAR_OF_BIRTH to yearOfBirth,
+            FirestoreFields.GENDER to gender,
+            FirestoreFields.CONDITION to condition.name,
+            FirestoreFields.POINTS_BALANCE to FirestoreDefaults.INITIAL_POINTS_BALANCE,
+            FirestoreFields.FLEXIBLE_REWARD to Constants.FLEXIBLE_REWARD,
+            FirestoreFields.FLEXIBLE_PENALTY to Constants.FLEXIBLE_PENALTY,
+            FirestoreFields.HAS_SET_FLEXIBLE_STAKES to false,
+            FirestoreFields.GOAL_SUCCESS_STREAK to 0
+        )
+        referralNumber?.let { referral ->
+            payload[FirestoreFields.REFERRAL_NUMBER] = referral
+        }
+        return payload
+    }
 
     private fun com.google.firebase.firestore.DocumentSnapshot.toUser(
         userId: String,

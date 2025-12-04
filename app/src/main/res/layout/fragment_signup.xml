@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/signup_scroll"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:clipToPadding="false"
     android:fillViewport="true">
 
     <androidx.constraintlayout.widget.ConstraintLayout
@@ -144,6 +146,27 @@
 
         </com.google.android.material.textfield.TextInputLayout>
 
+        <!-- Referral Number Input -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/til_referral_number"
+            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/spacing_md"
+            android:hint="@string/referral_number_hint"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/til_confirm_password">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/et_referral_number"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="text"
+                android:maxLines="1" />
+
+        </com.google.android.material.textfield.TextInputLayout>
+
         <!-- Signup Button -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_signup"
@@ -153,7 +176,7 @@
             android:text="@string/signup_button"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/til_confirm_password" />
+            app:layout_constraintTop_toBottomOf="@id/til_referral_number" />
 
         <!-- Sign In Link -->
         <LinearLayout
@@ -191,4 +214,4 @@
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 
-</ScrollView> 
+</androidx.core.widget.NestedScrollView> 

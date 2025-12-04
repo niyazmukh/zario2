@@ -11,15 +11,19 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import com.niyaz.zario.Constants
 import com.niyaz.zario.R
 import com.niyaz.zario.databinding.FragmentPermissionsBinding
+import com.niyaz.zario.core.evaluation.EvaluationRepository
 import com.niyaz.zario.permissions.PermissionsManager
+import com.niyaz.zario.repository.UserSessionRepository
 import com.niyaz.zario.utils.BatteryOptimizationUtils
 import com.niyaz.zario.utils.navigateSafely
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
+import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
 class PermissionsFragment : Fragment() {
@@ -27,6 +31,8 @@ class PermissionsFragment : Fragment() {
     private var _binding: FragmentPermissionsBinding? = null
     private val binding get() = _binding!!
     @Inject lateinit var permissionsManager: PermissionsManager
+    @Inject lateinit var evaluationRepository: EvaluationRepository
+    @Inject lateinit var sessionRepository: UserSessionRepository
 
     private val notificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -81,8 +87,16 @@ class PermissionsFragment : Fragment() {
 
         binding.btnContinue.setOnClickListener {
             Log.d(TAG, "Continue button clicked")
-            // Navigate to target selection screen
-            findNavController().navigateSafely(R.id.action_permissions_to_target)
+            viewLifecycleOwner.lifecycleScope.launch {
+                val shouldShowIntro = !sessionRepository.hasCompletedIntro() &&
+                    !evaluationRepository.hasPlanConfigured()
+                val destination = if (shouldShowIntro) {
+                    R.id.action_permissions_to_intro
+                } else {
+                    R.id.action_permissions_to_target
+                }
+                findNavController().navigateSafely(destination)
+            }
         }
     }
 

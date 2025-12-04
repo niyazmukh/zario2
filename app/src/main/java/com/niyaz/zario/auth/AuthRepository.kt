@@ -8,7 +8,8 @@ data class SignupRequest(
     val password: String,
     val yearOfBirth: String,
     val gender: String,
-    val condition: Condition
+    val condition: Condition,
+    val referralNumber: String? = null
 )
 
 interface AuthRepository {

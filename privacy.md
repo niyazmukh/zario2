@@ -1,8 +1,8 @@
-﻿# Minutes  Privacy Declaration
+﻿# Minutes - Privacy Declaration
 
 Last updated: 2025-12-04
 
-This document explains what information the Zario app may collect, why it's collected, how it is used, and how you can exercise your privacy choices. This is a short, developer-friendly summary and not a substitute for full legal privacy policies required in some jurisdictions.
+This document explains what information the Minutes app may collect, why it's collected, how it is used, and how you can exercise your privacy choices. This is a short, developer-friendly summary and not a substitute for full legal privacy policies required in some jurisdictions.
 
 ## 1. App owner / contact
 
