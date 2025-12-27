@@ -38,6 +38,21 @@ import org.robolectric.RobolectricTestRunner
 class UsageStatsRepositoryTest {
 
     @Test
+    fun `does not reference LocalDate ofInstant (API 34+)`() {
+        val resourceName = "${UsageStatsRepository::class.java.name.replace('.', '/')}.class"
+        val bytes = UsageStatsRepository::class.java.classLoader
+            ?.getResourceAsStream(resourceName)
+            ?.readBytes()
+            ?: error("Could not read class bytes for $resourceName")
+
+        val classText = bytes.toString(Charsets.ISO_8859_1)
+        assertTrue(
+            "UsageStatsRepository must not reference LocalDate.ofInstant (missing on API < 34)",
+            !classText.contains("ofInstant")
+        )
+    }
+
+    @Test
     fun `snapshot reflects ingested sessions and active package`() = runTest {
         val harness = RepositoryHarness(this)
         harness.use { repository, scope, _ ->
@@ -108,7 +123,7 @@ class UsageStatsRepositoryTest {
                 confidence = EventConfidence.HIGH,
                 packageName = "com.example.app",
                 activityClass = "Main",
-                state = ActivityLifecycleState.PAUSED
+                state = ActivityLifecycleState.STOPPED
             )
         )
 
@@ -127,7 +142,7 @@ class UsageStatsRepositoryTest {
             val previousBucket = buckets.firstOrNull { it.bucketStartMs == previousHourStart }
             requireNotNull(previousBucket) { "Expected bucket for previous cycle hour" }
             assertEquals(
-                TimeUnit.MINUTES.toMillis(20),
+                TimeUnit.MINUTES.toMillis(20) + TimeUnit.SECONDS.toMillis(30),
                 previousBucket.totalsByPackage["com.example.app"]
             )
         }
@@ -153,7 +168,28 @@ class UsageStatsRepositoryTest {
             clock = Clock.fixed(FIXED_NOW, ZoneId.of("UTC"))
         )
         private val eventBus = UsageEventBus(scope)
-        private val fakeEventSource = QueueingTrackedEventSource()
+        private val initialEvents: List<TrackedEvent> = buildList {
+            addAll(
+                listOf(
+                    TrackedEvent.ActivityLifecycle(
+                        epochMillis = FIXED_NOW.minusSeconds(1800).toEpochMilli(),
+                        confidence = EventConfidence.HIGH,
+                        packageName = "com.example.app",
+                        activityClass = "Main",
+                        state = ActivityLifecycleState.RESUMED
+                    ),
+                    TrackedEvent.ActivityLifecycle(
+                        epochMillis = FIXED_NOW.toEpochMilli(),
+                        confidence = EventConfidence.HIGH,
+                        packageName = "com.example.app",
+                        activityClass = "Main",
+                        state = ActivityLifecycleState.PAUSED
+                    )
+                )
+            )
+            addAll(extraEvents)
+        }.sortedBy { it.epochMillis }
+        private val fakeEventSource: TrackedEventSource = FilteringTrackedEventSource(initialEvents)
         private val database: UsageAggregationDatabase = Room.inMemoryDatabaseBuilder(
             context,
             UsageAggregationDatabase::class.java
@@ -169,31 +205,7 @@ class UsageStatsRepositoryTest {
         private val devicePolicyAdvisor = object : DevicePolicyAdvisor() {
             override fun recommendedRefreshIntervalMillis(): Long = 10_000L
         }
-        init {
-            val initialEvents = mutableListOf<TrackedEvent>().apply {
-                addAll(
-                    listOf(
-                        TrackedEvent.ActivityLifecycle(
-                            epochMillis = FIXED_NOW.minusSeconds(1800).toEpochMilli(),
-                            confidence = EventConfidence.HIGH,
-                            packageName = "com.example.app",
-                            activityClass = "Main",
-                            state = ActivityLifecycleState.RESUMED
-                        ),
-                        TrackedEvent.ActivityLifecycle(
-                            epochMillis = FIXED_NOW.toEpochMilli(),
-                            confidence = EventConfidence.HIGH,
-                            packageName = "com.example.app",
-                            activityClass = "Main",
-                            state = ActivityLifecycleState.PAUSED
-                        )
-                    )
-                )
-                addAll(extraEvents)
-            }.sortedBy { it.epochMillis }
-            fakeEventSource.enqueue(initialEvents)
-        }
-        val repository = UsageStatsRepository(store, config, eventBus, devicePolicyAdvisor, scope)
+        private val repository = UsageStatsRepository(store, config, eventBus, devicePolicyAdvisor, scope)
 
         suspend fun <R> use(block: suspend (UsageStatsRepository, CoroutineScope, UsageAggregationConfig) -> R): R {
             return try {
@@ -208,15 +220,12 @@ class UsageStatsRepositoryTest {
             scope.cancel()
         }
 
-        private inner class QueueingTrackedEventSource : TrackedEventSource {
-            private val events = ArrayDeque<List<TrackedEvent>>()
-
-            fun enqueue(batch: List<TrackedEvent>) {
-                events.addLast(batch)
-            }
-
+        private class FilteringTrackedEventSource(private val events: List<TrackedEvent>) : TrackedEventSource {
             override suspend fun load(startMillis: Long, endMillis: Long): List<TrackedEvent> {
-                return if (events.isEmpty()) emptyList() else events.removeFirst()
+                if (events.isEmpty() || startMillis >= endMillis) return emptyList()
+                return events.filter { event ->
+                    event.epochMillis >= startMillis && event.epochMillis < endMillis
+                }
             }
         }
     }

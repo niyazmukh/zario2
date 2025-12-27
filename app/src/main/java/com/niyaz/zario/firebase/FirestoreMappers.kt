@@ -34,6 +34,41 @@ fun DocumentSnapshot.toAppUsageHourlyEntry(userId: String, userEmail: String, pl
     )
 }
 
+/**
+ * Supports both legacy hourly docs (one doc per package) and v2 hourly docs (one doc per hour with `packages`).
+ */
+fun DocumentSnapshot.toAppUsageHourlyEntries(
+    userId: String,
+    userEmail: String,
+    fallbackPlanLabel: String
+): List<AppUsageHourlyEntry> {
+    val packages = get("packages")
+    if (packages !is List<*>) {
+        return listOf(toAppUsageHourlyEntry(userId, userEmail, fallbackPlanLabel))
+    }
+
+    val planLabel = getString("planLabel") ?: fallbackPlanLabel
+    val cycleStartTime = getLong("cycleStartTime") ?: 0L
+    val hourStartTime = getLong("hourStartTime") ?: 0L
+    val hourEndTime = getLong("hourEndTime") ?: 0L
+
+    return packages.mapNotNull { item ->
+        val raw = item as? Map<*, *> ?: return@mapNotNull null
+        val packageName = raw["packageName"] as? String ?: return@mapNotNull null
+        val usageMs = (raw["usageMs"] as? Number)?.toLong() ?: 0L
+        AppUsageHourlyEntry(
+            userId = userId,
+            userEmail = userEmail,
+            planLabel = planLabel,
+            cycleStartTime = cycleStartTime,
+            hourStartTime = hourStartTime,
+            hourEndTime = hourEndTime,
+            packageName = packageName,
+            usageMs = usageMs
+        )
+    }
+}
+
 fun Map<String, Any?>.toScreenTimePlan(): ScreenTimePlan? {
     val goalTimeMs = (this["goalTimeMs"] as? Number)?.toLong() ?: return null
     val dailyAverageMs = (this["dailyAverageMs"] as? Number)?.toLong() ?: 0L

@@ -70,7 +70,7 @@ class UsageStatsRepository @Inject constructor(
     suspend fun getSnapshot(forceRefresh: Boolean = false): UsageSummary {
         val now = currentTime()
         val cached = _snapshot.value
-        val isSameDay = lastSnapshotDate == LocalDate.ofInstant(Instant.ofEpochMilli(now), config.zoneId)
+        val isSameDay = lastSnapshotDate == localDateOf(Instant.ofEpochMilli(now), config.zoneId)
         val cacheAge = if (lastRefreshTimestamp != 0L) now - lastRefreshTimestamp else Long.MAX_VALUE
         val isFresh = isSameDay && lastRefreshTimestamp != 0L && cacheAge < refreshIntervalMs
         
@@ -80,7 +80,7 @@ class UsageStatsRepository @Inject constructor(
         
         return refreshMutex.withLock {
             val latestNow = currentTime()
-            val effectiveToday = LocalDate.ofInstant(Instant.ofEpochMilli(latestNow), config.zoneId)
+            val effectiveToday = localDateOf(Instant.ofEpochMilli(latestNow), config.zoneId)
             val latestCacheAge = if (lastRefreshTimestamp != 0L) latestNow - lastRefreshTimestamp else Long.MAX_VALUE
             val latestSameDay = lastSnapshotDate == effectiveToday
             val stillFresh = !forceRefresh && latestSameDay && lastRefreshTimestamp != 0L && latestCacheAge < refreshIntervalMs
@@ -123,11 +123,11 @@ class UsageStatsRepository @Inject constructor(
             
             // Calculate which day this query is for
             val zoneId = config.zoneId
-            val rangeStart = LocalDate.ofInstant(Instant.ofEpochMilli(boundedStart), zoneId)
+            val rangeStart = localDateOf(Instant.ofEpochMilli(boundedStart), zoneId)
             var dayStart = rangeStart.atStartOfDay(zoneId).toInstant().toEpochMilli()
-            
+
             // Invalidate cache if historical query overlaps with current day
-            val today = LocalDate.ofInstant(Instant.ofEpochMilli(now), zoneId)
+            val today = localDateOf(Instant.ofEpochMilli(now), zoneId)
             val todayStart = today.atStartOfDay(zoneId).toInstant().toEpochMilli()
             if (boundedEnd > todayStart) {
                 Log.d(TAG, "getUsageBuckets: invalidating cache due to overlap with current day")
@@ -162,7 +162,7 @@ class UsageStatsRepository @Inject constructor(
         val requestedDays = maxOf(1, days)
         val now = currentTime()
         val zoneId = config.zoneId
-        val today = LocalDate.ofInstant(Instant.ofEpochMilli(now), zoneId)
+        val today = localDateOf(Instant.ofEpochMilli(now), zoneId)
         val earliestRequestedDay = today.minusDays((requestedDays - 1).toLong())
         val earliestStart = earliestRequestedDay.atStartOfDay(zoneId).toInstant().toEpochMilli()
         val boundedStart = maxOf(earliestStart, now - config.maxLookback.toMillis())
@@ -185,7 +185,7 @@ class UsageStatsRepository @Inject constructor(
         applicationScope.launch {
             refreshMutex.withLock {
                 val now = currentTime()
-                val today = LocalDate.ofInstant(Instant.ofEpochMilli(now), config.zoneId)
+                val today = localDateOf(Instant.ofEpochMilli(now), config.zoneId)
                 if (force) {
                     refreshCurrentDayLocked(now, today)
                 } else {
@@ -218,15 +218,18 @@ class UsageStatsRepository @Inject constructor(
 
     private fun currentTime(): Long = config.clock.instant().toEpochMilli()
 
+    private fun localDateOf(instant: Instant, zoneId: ZoneId): LocalDate =
+        instant.atZone(zoneId).toLocalDate()
+
     private fun startOfDay(timestamp: Long, zoneId: ZoneId): Long {
         val instant = Instant.ofEpochMilli(timestamp)
-        return LocalDate.ofInstant(instant, zoneId)
+        return localDateOf(instant, zoneId)
             .atStartOfDay(zoneId)
             .toInstant()
             .toEpochMilli()
     }
 
-    private fun currentDate(): LocalDate = LocalDate.ofInstant(config.clock.instant(), config.zoneId)
+    private fun currentDate(): LocalDate = localDateOf(config.clock.instant(), config.zoneId)
 
     private suspend fun refreshCurrentDayLocked(now: Long, today: LocalDate): UsageSummary {
         val dayStart = startOfDay(now, config.zoneId)

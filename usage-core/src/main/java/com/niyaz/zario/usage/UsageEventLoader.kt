@@ -1,10 +1,10 @@
 package com.niyaz.zario.usage
 
 import android.app.usage.UsageEvents
-import android.app.usage.UsageEventsQuery
 import android.app.usage.UsageStatsManager
 import android.os.Build
 import android.util.Log
+import java.lang.reflect.Constructor
 import java.lang.reflect.Method
 import java.time.Duration
 import kotlin.runCatching
@@ -17,8 +17,8 @@ open class UsageEventLoader(
     private val usageStatsManager: UsageStatsManager,
     private val config: UsageAggregationConfig,
     private val sdkIntProvider: () -> Int = { Build.VERSION.SDK_INT },
-    private val filteredQueryInvoker: (UsageStatsManager, UsageEventsQuery) -> UsageEvents? = DEFAULT_FILTERED_QUERY,
-    private val filteredQueryFactory: (Long, Long) -> UsageEventsQuery? = DEFAULT_FILTERED_QUERY_FACTORY,
+    private val filteredQueryInvoker: (UsageStatsManager, Any) -> UsageEvents? = DEFAULT_FILTERED_QUERY,
+    private val filteredQueryFactory: (Long, Long) -> Any? = DEFAULT_FILTERED_QUERY_FACTORY,
     private val telemetry: UsageIngestionTelemetry = UsageIngestionTelemetry.NO_OP
 ) : UsageEventSource {
 
@@ -353,31 +353,62 @@ open class UsageEventLoader(
     companion object {
         private val MIN_SLICE_MS: Long = Duration.ofHours(1).toMillis()
         private val TRACKED_EVENT_TYPES = UsageEventType.trackedRawValues()
-    // Android 14 (API 34) added UsageStatsManager#queryEvents(UsageEventsQuery)
-    private const val MIN_FILTERED_QUERY_API_LEVEL = 34
+        // Android 14 (API 34) added UsageStatsManager#queryEvents(UsageEventsQuery)
+        private const val MIN_FILTERED_QUERY_API_LEVEL = 34
         private const val TAG = "UsageEventLoader"
         private val EVENT_CLASS_METHODS = EventMethods()
-        private val FILTERED_QUERY_METHOD: Method? = runCatching {
-            UsageStatsManager::class.java.getMethod("queryEvents", UsageEventsQuery::class.java)
-        }.getOrNull()
-        private val DEFAULT_FILTERED_QUERY: (UsageStatsManager, UsageEventsQuery) -> UsageEvents? =
+        private val DEFAULT_FILTERED_QUERY: (UsageStatsManager, Any) -> UsageEvents? =
             ::defaultFilteredQuery
-        private val DEFAULT_FILTERED_QUERY_FACTORY: (Long, Long) -> UsageEventsQuery? =
+        private val DEFAULT_FILTERED_QUERY_FACTORY: (Long, Long) -> Any? =
             ::defaultFilteredQueryFactory
 
         private fun defaultFilteredQuery(
             manager: UsageStatsManager,
-            query: UsageEventsQuery
+            query: Any
         ): UsageEvents? {
-            val method = FILTERED_QUERY_METHOD ?: return null
-            return runCatching { method.invoke(manager, query) as? UsageEvents }.getOrNull()
+            val support = API34_FILTERED_QUERY_SUPPORT ?: return null
+            return runCatching { support.queryEventsMethod.invoke(manager, query) as? UsageEvents }.getOrNull()
         }
 
-        private fun defaultFilteredQueryFactory(start: Long, end: Long): UsageEventsQuery? {
+        private fun defaultFilteredQueryFactory(start: Long, end: Long): Any? {
+            val support = API34_FILTERED_QUERY_SUPPORT ?: return null
             return runCatching {
-                UsageEventsQuery.Builder(start, end)
-                    .setEventTypes(*TRACKED_EVENT_TYPES)
-                    .build()
+                val builder = support.builderCtor.newInstance(start, end)
+                support.setEventTypesMethod.invoke(builder, TRACKED_EVENT_TYPES)
+                support.buildMethod.invoke(builder)
+            }.getOrNull()
+        }
+
+        /**
+         * Reflection lookup for Android 14+ filtered UsageEvents APIs.
+         *
+         * IMPORTANT: This must not reference UsageEventsQuery at compile-time; minSdk is 29.
+         */
+        private val API34_FILTERED_QUERY_SUPPORT: Api34FilteredQuerySupport? by lazy(LazyThreadSafetyMode.PUBLICATION) {
+            Api34FilteredQuerySupport.create()
+        }
+    }
+
+    private class Api34FilteredQuerySupport(
+        val queryEventsMethod: Method,
+        val builderCtor: Constructor<*>,
+        val setEventTypesMethod: Method,
+        val buildMethod: Method
+    ) {
+        companion object {
+            fun create(): Api34FilteredQuerySupport? = runCatching {
+                val queryClass = Class.forName("android.app.usage.UsageEventsQuery")
+                val builderClass = Class.forName("android.app.usage.UsageEventsQuery\$Builder")
+                val builderCtor = builderClass.getConstructor(Long::class.javaPrimitiveType, Long::class.javaPrimitiveType)
+                val setEventTypesMethod = builderClass.getMethod("setEventTypes", IntArray::class.java)
+                val buildMethod = builderClass.getMethod("build")
+                val queryEventsMethod = UsageStatsManager::class.java.getMethod("queryEvents", queryClass)
+                Api34FilteredQuerySupport(
+                    queryEventsMethod = queryEventsMethod,
+                    builderCtor = builderCtor,
+                    setEventTypesMethod = setEventTypesMethod,
+                    buildMethod = buildMethod
+                )
             }.getOrNull()
         }
     }

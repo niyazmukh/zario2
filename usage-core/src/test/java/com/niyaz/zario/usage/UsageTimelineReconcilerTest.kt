@@ -89,7 +89,7 @@ class UsageTimelineReconcilerTest {
         assertEquals(1, sessions.size)
         val session = sessions.single()
         assertEquals(1000, session.startMs)
-        assertEquals(40_000, session.endMs)
+        assertEquals(10_000, session.endMs)
     }
 
     @org.junit.Test
@@ -157,7 +157,7 @@ class UsageTimelineReconcilerTest {
         val session = sessions.single()
         assertEquals("com.test.app", session.packageName)
         assertEquals(start + 100, session.startMs)
-        assertEquals(start + 33_000, session.endMs)
+        assertEquals(end, session.endMs)
     }
 
     @org.junit.Test
@@ -215,7 +215,7 @@ class UsageTimelineReconcilerTest {
         assertEquals(1, sessions.size)
         val session = sessions.single()
         assertEquals(500, session.startMs)
-        assertEquals(6_500, session.endMs)
+        assertEquals(10_000, session.endMs)
     }
 
     @org.junit.Test
@@ -264,7 +264,7 @@ class UsageTimelineReconcilerTest {
         assertEquals(1, sessions.size)
         val session = sessions.single()
         assertEquals(100, session.startMs)
-        assertEquals(5_000, session.endMs)
+        assertEquals(35_000, session.endMs)
     }
 
     @org.junit.Test
@@ -299,13 +299,13 @@ class UsageTimelineReconcilerTest {
         assertEquals(1, sessions.size)
         val session = sessions.single()
         assertEquals(200, session.startMs)
-        assertEquals(2_000, session.endMs)
+        assertEquals(32_000, session.endMs)
     }
 
     @org.junit.Test
     fun `does not merge sessions separated by noticeable gap`() {
         val start = 0L
-        val windowEnd = 20_000L
+        val windowEnd = 100_000L
         val events = listOf(
             TrackedEvent.UsageStats(
                 epochMillis = 1_000,
@@ -322,18 +322,18 @@ class UsageTimelineReconcilerTest {
                 backingEvent = UsageEvent(5_000, UsageEventType.MOVE_TO_BACKGROUND, "com.example.app")
             ),
             TrackedEvent.UsageStats(
-                epochMillis = 17_000,
+                epochMillis = 50_000,
                 confidence = EventConfidence.HIGH,
                 packageName = "com.example.app",
                 type = UsageEventType.MOVE_TO_FOREGROUND,
-                backingEvent = UsageEvent(17_000, UsageEventType.MOVE_TO_FOREGROUND, "com.example.app")
+                backingEvent = UsageEvent(50_000, UsageEventType.MOVE_TO_FOREGROUND, "com.example.app")
             ),
             TrackedEvent.UsageStats(
-                epochMillis = 21_500,
+                epochMillis = 55_000,
                 confidence = EventConfidence.HIGH,
                 packageName = "com.example.app",
                 type = UsageEventType.MOVE_TO_BACKGROUND,
-                backingEvent = UsageEvent(21_500, UsageEventType.MOVE_TO_BACKGROUND, "com.example.app")
+                backingEvent = UsageEvent(55_000, UsageEventType.MOVE_TO_BACKGROUND, "com.example.app")
             )
         )
 
@@ -341,9 +341,9 @@ class UsageTimelineReconcilerTest {
 
         assertEquals(2, sessions.size)
         assertEquals(1_000, sessions[0].startMs)
-        assertEquals(5_000, sessions[0].endMs)
-        assertEquals(17_000, sessions[1].startMs)
-        assertEquals(21_500, sessions[1].endMs)
+        assertEquals(35_000, sessions[0].endMs)
+        assertEquals(50_000, sessions[1].startMs)
+        assertEquals(85_000, sessions[1].endMs)
     }
 
     @org.junit.Test
@@ -386,6 +386,6 @@ class UsageTimelineReconcilerTest {
         assertEquals(1, sessions.size)
         val session = sessions.single()
         assertEquals(1_000, session.startMs)
-        assertEquals(9_000, session.endMs)
+        assertEquals(39_000, session.endMs)
     }
 }

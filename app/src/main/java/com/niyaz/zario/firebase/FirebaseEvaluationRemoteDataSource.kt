@@ -93,7 +93,7 @@ class FirebaseEvaluationRemoteDataSource @Inject constructor(
 
         if (buckets.isEmpty()) return
 
-        withContext(Dispatchers.IO) {
+        val insertedNewEntries = withContext(Dispatchers.IO) {
             val stateKey = HourlySyncStateEntity.keyFor(userId, cycleStartTime)
             val existingState = remoteSyncDao.findStateByKey(stateKey)
             val lastProcessedHourStart = existingState?.lastSyncedHourStart ?: (cycleStartTime - HOUR_MS)
@@ -143,9 +143,14 @@ class FirebaseEvaluationRemoteDataSource @Inject constructor(
                 )
                 remoteSyncDao.upsertState(updatedState)
             }
+
+            newEntries.isNotEmpty()
         }
 
-        remoteSyncScheduler.scheduleSync()
+        // Avoid scheduling RemoteSyncWorker on every monitoring tick.
+        if (insertedNewEntries) {
+            remoteSyncScheduler.scheduleSync()
+        }
     }
 
     private fun resolveUserIdOrNull(): UserIdentity? {

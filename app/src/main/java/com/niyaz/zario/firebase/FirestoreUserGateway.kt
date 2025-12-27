@@ -68,15 +68,51 @@ class FirestoreUserGateway @Inject constructor(
 
         if (hourlyEntries.isEmpty()) return
 
-        // Hourly entries uploaded in batches (non-critical, no rollback needed)
-        hourlyEntries.chunked(MAX_HOURLY_BATCH).forEach { chunk ->
+        val entriesByHour = hourlyEntries
+            .mapNotNull { entry ->
+                val hourStart = (entry["hourStartTime"] as? Number)?.toLong() ?: return@mapNotNull null
+                hourStart to entry
+            }
+            .groupBy({ it.first }, { it.second })
+
+        if (entriesByHour.isEmpty()) return
+
+        val hourlyCollection = historyDoc.collection(FirestoreCollections.HOURLY_USAGE)
+
+        // v2: one doc per hour with a `packages` array
+        entriesByHour.entries.chunked(MAX_HOURLY_BATCH).forEach { hourChunk ->
             withFirebaseTimeout {
                 firestore.runBatch { batch ->
-                    chunk.forEachIndexed { index, entry ->
-                        val hourlyId = hourlyDocumentId(historyDocumentId, entry, index)
-                        val hourlyDoc = historyDoc.collection(FirestoreCollections.HOURLY_USAGE)
-                            .document(hourlyId)
-                        batch.set(hourlyDoc, entry, SetOptions.merge())
+                    hourChunk.forEach { (hourStart, hourEntries) ->
+                        val representative = hourEntries.firstOrNull() ?: return@forEach
+                        val packages = hourEntries.mapNotNull { hourlyEntry ->
+                            val packageName = hourlyEntry["packageName"] as? String ?: return@mapNotNull null
+                            val usageMs = (hourlyEntry["usageMs"] as? Number)?.toLong() ?: return@mapNotNull null
+                            mapOf(
+                                "packageName" to packageName,
+                                "usageMs" to usageMs
+                            )
+                        }
+
+                        if (packages.isEmpty()) return@forEach
+
+                        val hourEnd = (representative["hourEndTime"] as? Number)?.toLong() ?: 0L
+                        val cycleStart = (representative["cycleStartTime"] as? Number)?.toLong() ?: 0L
+                        val plan = (representative["planLabel"] as? String)
+                            ?: (historyData["planLabel"] as? String)
+                            ?: ""
+
+                        val docData = mapOf(
+                            "schemaVersion" to HOURLY_USAGE_SCHEMA_VERSION,
+                            "planLabel" to plan,
+                            "cycleStartTime" to cycleStart,
+                            "hourStartTime" to hourStart,
+                            "hourEndTime" to hourEnd,
+                            "packages" to packages
+                        )
+
+                        val hourlyDoc = hourlyCollection.document(hourStart.toString())
+                        batch.set(hourlyDoc, docData, SetOptions.merge())
                     }
                 }.await()
             }
@@ -99,32 +135,28 @@ class FirestoreUserGateway @Inject constructor(
             .collection(FirestoreCollections.HOURLY_USAGE)
             .document(hourStartTime.toString())
 
-        withFirebaseTimeout {
-            firestore.runBatch { batch ->
-                batch.set(
-                    liveDoc,
-                    mapOf(
-                        "planLabel" to planLabel,
-                        "cycleStartTime" to cycleStartTime,
-                        "hourStartTime" to hourStartTime,
-                        "hourEndTime" to hourEndTime
-                    ),
-                    SetOptions.merge()
-                )
-            }.await()
+        val packages = hourlyEntries.mapNotNull { hourlyEntry ->
+            val packageName = hourlyEntry["packageName"] as? String ?: return@mapNotNull null
+            val usageMs = (hourlyEntry["usageMs"] as? Number)?.toLong() ?: return@mapNotNull null
+            mapOf(
+                "packageName" to packageName,
+                "usageMs" to usageMs
+            )
         }
 
-        hourlyEntries.chunked(MAX_HOURLY_BATCH).forEach { chunk ->
-            withFirebaseTimeout {
-                firestore.runBatch { batch ->
-                    chunk.forEachIndexed { index, entry ->
-                        val hourlyId = hourlyDocumentId(hourStartTime.toString(), entry, index)
-                        val packageDoc = liveDoc.collection(FirestoreCollections.HOURLY_PACKAGES)
-                            .document(hourlyId)
-                        batch.set(packageDoc, entry, SetOptions.merge())
-                    }
-                }.await()
-            }
+        if (packages.isEmpty()) return
+
+        val docData = mapOf(
+            "schemaVersion" to HOURLY_USAGE_SCHEMA_VERSION,
+            "planLabel" to planLabel,
+            "cycleStartTime" to cycleStartTime,
+            "hourStartTime" to hourStartTime,
+            "hourEndTime" to hourEndTime,
+            "packages" to packages
+        )
+
+        withFirebaseTimeout {
+            liveDoc.set(docData, SetOptions.merge()).await()
         }
     }
 
@@ -220,14 +252,31 @@ class FirestoreUserGateway @Inject constructor(
                     .await()
                     .documents
             }
-            val hourlyEntries = hourlySnapshots.map { hourlyDoc ->
-                hourlyDoc.toAppUsageHourlyEntry(userId, userEmail, historyEntry.planLabel)
+            val v2Docs = hourlySnapshots.filter { doc ->
+                doc.contains("packages") || (doc.getLong("schemaVersion") ?: 0L) >= HOURLY_USAGE_SCHEMA_VERSION.toLong()
+            }
+            val v2HourStarts = v2Docs.mapNotNull { it.getLong("hourStartTime") }.toSet()
+
+            val hourlyEntries = buildList {
+                v2Docs.forEach { doc ->
+                    addAll(doc.toAppUsageHourlyEntries(userId, userEmail, historyEntry.planLabel))
+                }
+
+                hourlySnapshots
+                    .filterNot { it in v2Docs }
+                    .forEach { doc ->
+                        val hourStart = doc.getLong("hourStartTime")
+                        if (hourStart == null || !v2HourStarts.contains(hourStart)) {
+                            addAll(doc.toAppUsageHourlyEntries(userId, userEmail, historyEntry.planLabel))
+                        }
+                    }
             }
             RemoteCycle(history = historyEntry, hourly = hourlyEntries)
         }
     }
 }
 
+private const val HOURLY_USAGE_SCHEMA_VERSION = 2
 private const val MAX_HOURLY_BATCH = 400
 private const val MAX_EVENT_BATCH = 100
 

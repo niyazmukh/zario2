@@ -4,7 +4,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ResolveInfo
-import android.os.Build
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -69,15 +68,8 @@ class LauncherPackageResolver @Inject constructor(
         packageManager: PackageManager,
         intent: Intent
     ): List<ResolveInfo> {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            packageManager.queryIntentActivities(
-                intent,
-                PackageManager.ResolveInfoFlags.of(PackageManager.MATCH_DEFAULT_ONLY.toLong())
-            )
-        } else {
-            @Suppress("DEPRECATION")
-            packageManager.queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY)
-        }
+        @Suppress("DEPRECATION")
+        return packageManager.queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY)
     }
 
     private companion object {

@@ -10,6 +10,7 @@ import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
 
@@ -28,7 +29,7 @@ class UsageEventRecorderTest {
 
         events.forEach { recorder.publish(it) }
 
-        advanceUntilIdle()
+        runCurrent()
         coVerify(exactly = 0) { dao.insertAll(any()) }
 
         advanceTimeBy(750L)

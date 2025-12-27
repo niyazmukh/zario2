@@ -68,9 +68,9 @@ class FlexStakesFragment : Fragment() {
                 updateContinueButtonState()
             }
         }
-    // Update penalty slider labels from Constants
-    binding.tvPenaltyMaxLabel.text = getString(R.string.slider_numeric_label, Constants.FLEXIBLE_PENALTY_MAX)
-    binding.tvPenaltyMinLabel.text = getString(R.string.slider_numeric_label, Constants.FLEXIBLE_PENALTY_MIN)
+        // Update penalty slider labels from Constants
+        binding.tvPenaltyMaxLabel.text = getString(R.string.slider_numeric_label, Constants.FLEXIBLE_PENALTY_MAX)
+        binding.tvPenaltyMinLabel.text = getString(R.string.slider_numeric_label, Constants.FLEXIBLE_PENALTY_MIN)
         
         binding.sliderPenalty.apply {
             valueFrom = Constants.FLEXIBLE_PENALTY_MIN.toFloat()

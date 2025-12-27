@@ -1,5 +1,6 @@
 package com.niyaz.zario.ui.splash
 
+import android.content.Context
 import android.os.Bundle
 import android.os.Looper
 import android.view.LayoutInflater
@@ -44,12 +45,13 @@ class SplashFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        lifecycleScope.launch {
-            decideNavigation()
+        val appContext = view.context.applicationContext
+        viewLifecycleOwner.lifecycleScope.launch {
+            decideNavigation(appContext)
         }
     }
 
-    private suspend fun decideNavigation() = withContext(Dispatchers.Default) {
+    private suspend fun decideNavigation(appContext: Context) = withContext(Dispatchers.Default) {
         val session = sessionRepository.awaitSession()
         if (!session.isLoggedIn) {
             navigateSafely(R.id.action_splash_to_login)
@@ -70,7 +72,7 @@ class SplashFragment : Fragment() {
             return@withContext
         }
 
-        if (!hasAllRequiredPermissions()) {
+        if (!hasAllRequiredPermissions(appContext)) {
             navigateSafely(R.id.action_splash_to_permissions)
             return@withContext
         }
@@ -89,13 +91,11 @@ class SplashFragment : Fragment() {
         navigateSafely(R.id.action_splash_to_intervention)
     }
 
-    private fun hasAllRequiredPermissions(): Boolean {
+    private fun hasAllRequiredPermissions(appContext: Context): Boolean {
         val state = permissionsManager.refresh()
         
         // Check battery optimization (Android 6.0+)
-        val hasBatteryOptimization = requireContext().let { context ->
-            BatteryOptimizationUtils.isIgnoringBatteryOptimizations(context)
-        }
+        val hasBatteryOptimization = BatteryOptimizationUtils.isIgnoringBatteryOptimizations(appContext)
         
         return state.hasUsageStatsPermission && 
                state.hasNotificationPermission &&

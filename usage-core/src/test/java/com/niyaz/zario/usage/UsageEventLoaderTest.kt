@@ -1,7 +1,6 @@
 package com.niyaz.zario.usage
 
 import android.app.usage.UsageEvents
-import android.app.usage.UsageEventsQuery
 import android.app.usage.UsageStatsManager
 import android.os.Build
 import io.mockk.every
@@ -94,8 +93,8 @@ class UsageEventLoaderTest {
     @Test
     fun `load uses filtered query on api 34`() {
         val usageStatsManager: UsageStatsManager = mockk(relaxed = true)
-        val queries = mutableListOf<UsageEventsQuery>()
-        val fakeQuery: UsageEventsQuery = mockk(relaxed = true)
+        val queries = mutableListOf<Any>()
+        val fakeQuery: Any = mockk(relaxed = true)
         val loader = UsageEventLoader(
             usageStatsManager,
             UsageAggregationConfig(enableFilteredEventQuery = true),
@@ -119,6 +118,34 @@ class UsageEventLoaderTest {
         assertEquals(1, results.size)
         assertEquals(1, queries.size)
         verify(exactly = 0) { usageStatsManager.queryEvents(any<Long>(), any()) }
+    }
+
+    @Test
+    @Config(sdk = [Build.VERSION_CODES.Q])
+    fun `load uses legacy query before api 34`() {
+        val usageStatsManager: UsageStatsManager = mockk(relaxed = true)
+        every { usageStatsManager.queryEvents(any<Long>(), any<Long>()) } answers {
+            usageEventsOf(
+                createEvent(
+                    timestamp = 1_000L,
+                    type = UsageEventType.MOVE_TO_FOREGROUND,
+                    packageName = "com.example.app"
+                )
+            )
+        }
+
+        val loader = UsageEventLoader(
+            usageStatsManager,
+            UsageAggregationConfig(enableFilteredEventQuery = true),
+            sdkIntProvider = { Build.VERSION_CODES.Q },
+            filteredQueryInvoker = { _, _ -> error("filteredQueryInvoker should not run before API 34") },
+            filteredQueryFactory = { _, _ -> error("filteredQueryFactory should not run before API 34") },
+            telemetry = UsageIngestionTelemetry.NO_OP
+        )
+
+        val results = loader.load(0L, 2_000L)
+        assertEquals(1, results.size)
+        verify(exactly = 1) { usageStatsManager.queryEvents(any<Long>(), any<Long>()) }
     }
 
     @Test

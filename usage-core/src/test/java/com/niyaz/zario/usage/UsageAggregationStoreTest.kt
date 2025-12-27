@@ -245,7 +245,7 @@ class UsageAggregationStoreTest {
                 confidence = EventConfidence.HIGH,
                 packageName = "com.contiguous",
                 activityClass = "Activity",
-                state = ActivityLifecycleState.PAUSED
+                state = ActivityLifecycleState.STOPPED
             )
         )
 
