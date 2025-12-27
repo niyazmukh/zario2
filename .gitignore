@@ -17,7 +17,6 @@ gradle-app.setting
 .idea/
 .vscode/
 .cursor/
-.github/
 
 # Build artifacts (compiled outputs, intermediates)
 **/build/
@@ -54,8 +53,7 @@ firebase.json
 firestore.rules
 
 # Assistant metadata / docs not meant for VCS
-.github/instructions/gpt5*.md
-.github/instructions/opus41.instructions.md
+.github/instructions/
 log.md
 
 # Logs
@@ -74,6 +72,7 @@ proguard-*.pro
 # Documentation and scripts folders
 docs/
 .docs/
+.tmp/
 .scripts/
 scripts/
 temp/
