@@ -142,7 +142,7 @@ class UsageStatsRepositoryTest {
             val previousBucket = buckets.firstOrNull { it.bucketStartMs == previousHourStart }
             requireNotNull(previousBucket) { "Expected bucket for previous cycle hour" }
             assertEquals(
-                TimeUnit.MINUTES.toMillis(20) + TimeUnit.SECONDS.toMillis(30),
+                TimeUnit.MINUTES.toMillis(20),
                 previousBucket.totalsByPackage["com.example.app"]
             )
         }
@@ -235,4 +235,3 @@ class UsageStatsRepositoryTest {
         private val ONE_DAY_MS: Long = Duration.ofDays(1).toMillis()
     }
 }
-

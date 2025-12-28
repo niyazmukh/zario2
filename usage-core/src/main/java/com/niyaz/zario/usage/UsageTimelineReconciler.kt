@@ -13,8 +13,6 @@ class UsageTimelineReconciler(
     private val config: UsageAggregationConfig
 ) {
 
-    private val taskContinuityGapMs = config.taskContinuityGap.toMillis()
-
     fun reconcile(events: List<TrackedEvent>, windowStartMs: Long, windowEndMs: Long): List<UsageSession> {
         if (events.isEmpty()) return emptyList()
         val boundedEvents = events.filter { it.epochMillis in windowStartMs..windowEndMs }
@@ -61,12 +59,7 @@ class UsageTimelineReconciler(
             // Close any other packages that may still be open to avoid overlapping sessions
             .also { _ ->
                 // finish other open sessions at the same timestamp
-                sessions += open.finishAllExcept(
-                    packageToKeep = event.packageName,
-                    timestamp = event.epochMillis,
-                    confidence = event.confidence,
-                    continuityGapMs = 0L
-                )
+                sessions += open.finishAllExcept(event.packageName, event.epochMillis, event.confidence)
             }
 
             ActivityLifecycleState.PAUSED -> open.touch(event.packageName, event.epochMillis, event.confidence)
@@ -74,8 +67,7 @@ class UsageTimelineReconciler(
             ActivityLifecycleState.DESTROYED -> open.finishIfAllowed(
                 packageName = event.packageName,
                 timestamp = event.epochMillis,
-                confidence = event.confidence,
-                continuityGapMs = taskContinuityGapMs
+                confidence = event.confidence
             )?.let(sessions::add)
         }
     }
@@ -94,23 +86,16 @@ class UsageTimelineReconciler(
             )
             // Close other packages when a new foreground open is detected
             .also { _ ->
-                sessions += open.finishAllExcept(
-                    packageToKeep = event.packageName,
-                    timestamp = event.epochMillis,
-                    confidence = event.confidence,
-                    continuityGapMs = 0L
-                )
+                sessions += open.finishAllExcept(event.packageName, event.epochMillis, event.confidence)
             }
             event.type.closesAllSessions -> sessions += open.finishAll(
                 timestamp = event.epochMillis,
-                confidence = event.confidence,
-                continuityGapMs = 0L
+                confidence = event.confidence
             )
             event.type.isForegroundCloseEvent -> open.finishIfAllowed(
                 packageName = event.packageName,
                 timestamp = event.epochMillis,
-                confidence = event.confidence,
-                continuityGapMs = taskContinuityGapMs
+                confidence = event.confidence
             )?.let(sessions::add)
         }
     }
@@ -120,10 +105,7 @@ class UsageTimelineReconciler(
         sessions: MutableList<UsageSession>
     ) {
         if (event.state == ScreenStateEvent.SCREEN_OFF || event.state == ScreenStateEvent.NON_INTERACTIVE) {
-            sessions += open.finishAll(
-                timestamp = event.epochMillis,
-                continuityGapMs = 0L
-            )
+            sessions += open.finishAll(timestamp = event.epochMillis)
         }
     }
 
@@ -149,8 +131,7 @@ class UsageTimelineReconciler(
     private fun MutableMap<String, SessionAccumulator>.finishIfAllowed(
         packageName: String,
         timestamp: Long,
-        confidence: EventConfidence,
-        continuityGapMs: Long
+        confidence: EventConfidence
     ): UsageSession? {
         val accumulator = this[packageName] ?: return null
         if (confidence.ordinal > accumulator.confidence.ordinal) {
@@ -159,14 +140,12 @@ class UsageTimelineReconciler(
         }
         val updated = accumulator.withCloseBoundary(timestamp)
         remove(packageName)
-        // Extend session with continuity gap to handle brief interruptions (matches Digital Wellbeing)
-        return updated.finish(timestamp + continuityGapMs, continuityGapMs)
+        return updated.finish(timestamp, 0L)
     }
 
     private fun MutableMap<String, SessionAccumulator>.finishAll(
         timestamp: Long,
-        confidence: EventConfidence? = null,
-        continuityGapMs: Long
+        confidence: EventConfidence? = null
     ): List<UsageSession> {
         val finished = mutableListOf<UsageSession>()
         val iterator = iterator()
@@ -177,8 +156,7 @@ class UsageTimelineReconciler(
                 entry.setValue(accumulator.withTouch(timestamp, confidence))
                 continue
             }
-            // Extend session with continuity gap to handle brief interruptions (matches Digital Wellbeing)
-            finished += accumulator.withCloseBoundary(timestamp).finish(timestamp + continuityGapMs, continuityGapMs)
+            finished += accumulator.withCloseBoundary(timestamp).finish(timestamp, 0L)
             iterator.remove()
         }
         return finished
@@ -196,8 +174,7 @@ class UsageTimelineReconciler(
     private fun MutableMap<String, SessionAccumulator>.finishAllExcept(
         packageToKeep: String,
         timestamp: Long,
-        confidence: EventConfidence,
-        continuityGapMs: Long
+        confidence: EventConfidence
     ): List<UsageSession> {
         val finished = mutableListOf<UsageSession>()
         val iterator = iterator()
@@ -210,7 +187,7 @@ class UsageTimelineReconciler(
                 continue
             }
 
-            finished += accumulator.withCloseBoundary(timestamp).finish(timestamp + continuityGapMs, continuityGapMs)
+            finished += accumulator.withCloseBoundary(timestamp).finish(timestamp, 0L)
             iterator.remove()
         }
         return finished

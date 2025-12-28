@@ -12,7 +12,7 @@ class UsageTimelineReconcilerTest {
     private val reconciler = UsageTimelineReconciler(config)
 
     @org.junit.Test
-    fun `sessions extend with continuity gap after explicit STOPPED event`() {
+    fun `sessions end at explicit STOPPED event`() {
         val start = 0L
         val events = listOf(
             TrackedEvent.ActivityLifecycle(
@@ -36,11 +36,11 @@ class UsageTimelineReconcilerTest {
         assertEquals(1, sessions.size)
         val session = sessions.single()
         assertEquals(1000, session.startMs)
-        assertEquals(35_000, session.endMs)
+        assertEquals(5000, session.endMs)
     }
 
     @org.junit.Test
-    fun `sessions extend with continuity gap after MOVE_TO_BACKGROUND`() {
+    fun `sessions end at MOVE_TO_BACKGROUND`() {
         val start = 0L
         val events = listOf(
             TrackedEvent.UsageStats(
@@ -62,12 +62,11 @@ class UsageTimelineReconcilerTest {
         assertEquals(1, sessions.size)
         val session = sessions.single()
         assertEquals(1000, session.startMs)
-        // Should extend 30s beyond background event
-        assertEquals(38_000, session.endMs)
+        assertEquals(8000, session.endMs)
     }
 
     @org.junit.Test
-    fun `sessions extend with continuity gap after screen off event`() {
+    fun `screen off ends sessions at screen off timestamp`() {
         val start = 0L
         val events = listOf(
             TrackedEvent.ActivityLifecycle(
@@ -264,7 +263,7 @@ class UsageTimelineReconcilerTest {
         assertEquals(1, sessions.size)
         val session = sessions.single()
         assertEquals(100, session.startMs)
-        assertEquals(35_000, session.endMs)
+        assertEquals(5_000, session.endMs)
     }
 
     @org.junit.Test
@@ -299,7 +298,7 @@ class UsageTimelineReconcilerTest {
         assertEquals(1, sessions.size)
         val session = sessions.single()
         assertEquals(200, session.startMs)
-        assertEquals(32_000, session.endMs)
+        assertEquals(2_000, session.endMs)
     }
 
     @org.junit.Test
@@ -341,9 +340,9 @@ class UsageTimelineReconcilerTest {
 
         assertEquals(2, sessions.size)
         assertEquals(1_000, sessions[0].startMs)
-        assertEquals(35_000, sessions[0].endMs)
+        assertEquals(5_000, sessions[0].endMs)
         assertEquals(50_000, sessions[1].startMs)
-        assertEquals(85_000, sessions[1].endMs)
+        assertEquals(55_000, sessions[1].endMs)
     }
 
     @org.junit.Test
@@ -386,6 +385,6 @@ class UsageTimelineReconcilerTest {
         assertEquals(1, sessions.size)
         val session = sessions.single()
         assertEquals(1_000, session.startMs)
-        assertEquals(39_000, session.endMs)
+        assertEquals(9_000, session.endMs)
     }
 }
