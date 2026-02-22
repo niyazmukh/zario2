@@ -213,6 +213,7 @@ object NotificationUtils {
             )
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setAutoCancel(false)
+            .setOnlyAlertOnce(true)
             .build()
         nm.notify(Constants.NOTIFICATION_ID_SYNC_FAILURE, notification)
     }

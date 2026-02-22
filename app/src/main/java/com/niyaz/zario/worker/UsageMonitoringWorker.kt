@@ -104,9 +104,9 @@ class UsageMonitoringWorker @AssistedInject constructor(
                 }
 
                 thresholdToNotify?.let { percent ->
+                    Log.i(TAG, "$percent% usage threshold reached – triggering notification")
                     val suppressNotification = repository.shouldSuppressDayOneNotifications(evaluationStartTime)
                     if (!suppressNotification) {
-                        Log.i(TAG, "$percent% usage threshold reached - triggering notification")
                         notificationDispatcher.notifyUsageThresholdReached(appContext, activePlan, currentUsage, percent)
                     }
                     repository.markUsageNotification(percent)
