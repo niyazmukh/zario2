@@ -78,7 +78,7 @@ object RoomMigrations {
                 `metGoal` INTEGER NOT NULL,
                 `pointsDelta` INTEGER NOT NULL,
                 `pointsBalanceAfter` INTEGER NOT NULL,
-                `attempts` INTEGER NOT NULL DEFAULT 0,
+                `attempts` INTEGER NOT NULL,
                 `lastAttemptAt` INTEGER,
                 `createdAt` INTEGER NOT NULL
             )
@@ -99,7 +99,7 @@ object RoomMigrations {
                 `packageName` TEXT NOT NULL,
                 `usageMs` INTEGER NOT NULL,
                 `syncType` TEXT NOT NULL,
-                `attempts` INTEGER NOT NULL DEFAULT 0,
+                `attempts` INTEGER NOT NULL,
                 `lastAttemptAt` INTEGER,
                 `createdAt` INTEGER NOT NULL
             )
@@ -193,7 +193,7 @@ object RoomMigrations {
                 `source` TEXT NOT NULL,
                 `appVersionName` TEXT,
                 `appVersionCode` INTEGER,
-                `attempts` INTEGER NOT NULL DEFAULT 0,
+                `attempts` INTEGER NOT NULL,
                 `lastAttemptAt` INTEGER,
                 `createdAt` INTEGER NOT NULL
             )
@@ -212,7 +212,7 @@ object RoomMigrations {
                 `notificationId` INTEGER NOT NULL,
                 `channelId` TEXT NOT NULL,
                 `metadataJson` TEXT,
-                `attempts` INTEGER NOT NULL DEFAULT 0,
+                `attempts` INTEGER NOT NULL,
                 `lastAttemptAt` INTEGER,
                 `createdAt` INTEGER NOT NULL
             )

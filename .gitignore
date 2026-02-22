@@ -9,9 +9,17 @@ local.properties
 
 # Gradle
 .gradle/
+.gradle-user/
+.gradle-user-home/
 gradle-app.setting
 !gradle/wrapper/gradle-wrapper.jar
 !gradle/wrapper/gradle-wrapper.properties
+
+# Local Android SDK/tooling runtime homes
+.android-home/
+
+# Temporary local git-repair backups
+.git.corrupt.backup.*/
 
 # IDE / editor
 .idea/
@@ -42,6 +50,7 @@ app/release-keystore.jks
 app/release-keystore.properties
 app/upload-keystore.jks
 app/upload-keystore.properties
+release-key-cert.pem
 
 # Firebase / google-services
 google-services.json

@@ -10,7 +10,9 @@ import com.niyaz.zario.data.local.dao.HourlyUsageDao
 import com.niyaz.zario.data.local.entities.EvaluationHistoryEntry
 import com.niyaz.zario.data.local.entities.AppUsageHourlyEntry
 import com.niyaz.zario.di.ApplicationScope
+import com.niyaz.zario.security.UserIdentity
 import com.niyaz.zario.utils.CalendarUtils
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
@@ -31,6 +33,32 @@ class EvaluationRepository @Inject constructor(
     private val remoteDataSource: EvaluationRemoteDataSource,
     @ApplicationScope private val applicationScope: CoroutineScope
 ) {
+
+    /**
+     * Suppresses notifications for the first calendar day after the first plan is set.
+     * This prevents “day one” negative onboarding experiences when today's existing usage
+     * is already near/exceeds the newly configured goal.
+     */
+    suspend fun shouldSuppressDayOneNotifications(cycleStartTime: Long): Boolean {
+        val firstPlanSetAt = planPreferencesDataSource.latest().firstPlanSetAt ?: return false
+        return CalendarUtils.isSameDay(firstPlanSetAt, cycleStartTime)
+    }
+
+    /**
+     * Suppresses the Feedback screen for the first calendar day after the first plan is set.
+     */
+    suspend fun shouldSuppressDayOneFeedback(cycleStartTime: Long): Boolean {
+        val firstPlanSetAt = planPreferencesDataSource.latest().firstPlanSetAt ?: return false
+        return CalendarUtils.isSameDay(firstPlanSetAt, cycleStartTime)
+    }
+
+    /**
+     * Suppresses points changes for the first calendar day after the first plan is set.
+     */
+    suspend fun shouldSuppressDayOnePoints(cycleStartTime: Long): Boolean {
+        val firstPlanSetAt = planPreferencesDataSource.latest().firstPlanSetAt ?: return false
+        return CalendarUtils.isSameDay(firstPlanSetAt, cycleStartTime)
+    }
 
     val evaluationState: StateFlow<EvaluationStateSnapshot> =
         cycleStateStore.cycleState
@@ -81,6 +109,33 @@ class EvaluationRepository @Inject constructor(
     }
 
     suspend fun hasPlanConfigured(): Boolean = planPreferencesDataSource.latest().plan != null
+
+    /**
+     * Returns true only when:
+     * - a plan exists locally, AND
+     * - the most recent evaluation cycle ended within the last [Constants.GOAL_REUSE_WINDOW_DAYS] days.
+     *
+     * If the user has no completed cycles yet (no history), the plan is considered valid.
+     */
+    suspend fun isPlanValidForUser(
+        userId: String,
+        userEmail: String,
+        nowMs: Long = System.currentTimeMillis()
+    ): Boolean {
+        if (planPreferencesDataSource.latest().plan == null) return false
+
+        val candidateIds = UserIdentity.candidateIds(userId, userEmail)
+        val idsForQuery = if (candidateIds.isEmpty()) listOf(EMPTY_ID_SENTINEL) else candidateIds
+
+        val latestEnd = historyDao.latestEvaluationEndTimeForUser(idsForQuery, userEmail)
+            ?: return true
+
+        // If timestamps are weird (e.g., future), treat as "not expired".
+        if (latestEnd <= 0L || latestEnd > nowMs) return true
+
+        val windowMs = TimeUnit.DAYS.toMillis(Constants.GOAL_REUSE_WINDOW_DAYS.toLong())
+        return (nowMs - latestEnd) <= windowMs
+    }
 
     suspend fun hasActiveEvaluation(): Boolean {
         val snapshot = cycleStateStore.latest()
@@ -227,5 +282,6 @@ class EvaluationRepository @Inject constructor(
 
     companion object {
         private const val TAG = Constants.LOG_TAG_EVALUATION_REPOSITORY
+        private const val EMPTY_ID_SENTINEL = "__none__"
     }
 }

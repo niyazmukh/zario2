@@ -86,9 +86,12 @@ class ProfileFragment : Fragment() {
                 numberFormatter.format(state.cyclesMet),
                 numberFormatter.format(state.cyclesElapsed)
             )
-            val totalPointsText = state.totalPoints?.let(numberFormatter::format)
-                ?: getString(R.string.points_not_applicable)
-            binding.tvTotalPoints.text = totalPointsText
+            binding.layoutPointsSummary.isVisible = state.showPoints
+            if (state.showPoints) {
+                val totalPointsText = state.totalPoints?.let(numberFormatter::format)
+                    ?: getString(R.string.points_not_applicable)
+                binding.tvTotalPoints.text = totalPointsText
+            }
             binding.tvCycleListTitle.text = getString(
                 R.string.profile_cycle_list_title_with_total,
                 numberFormatter.format(state.cyclesElapsed)

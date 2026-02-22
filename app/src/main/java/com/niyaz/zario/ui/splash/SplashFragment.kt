@@ -14,6 +14,7 @@ import com.niyaz.zario.core.evaluation.EvaluationRepository
 import com.niyaz.zario.repository.UserSessionRepository
 import com.niyaz.zario.permissions.PermissionsManager
 import com.niyaz.zario.utils.BatteryOptimizationUtils
+import com.niyaz.zario.data.Condition
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -58,6 +59,12 @@ class SplashFragment : Fragment() {
             return@withContext
         }
 
+        val currentUser = session.user
+        if (currentUser == null) {
+            navigateSafely(R.id.action_splash_to_login)
+            return@withContext
+        }
+
         // Check for unviewed completed evaluations first
         if (evaluationRepository.hasUnviewedCompletedEvaluation()) {
             navigateSafely(R.id.action_splash_to_feedback)
@@ -65,8 +72,7 @@ class SplashFragment : Fragment() {
         }
 
         // Check if FLEXIBLE user needs to set stakes
-        val currentUser = session.user
-        if (currentUser?.condition == com.niyaz.zario.data.Condition.FLEXIBLE &&
+        if (currentUser.condition == Condition.FLEXIBLE &&
             currentUser.hasSetFlexibleStakes.not()) {
             navigateSafely(R.id.action_splash_to_flexstakes)
             return@withContext
@@ -77,7 +83,8 @@ class SplashFragment : Fragment() {
             return@withContext
         }
 
-        if (!evaluationRepository.hasPlanConfigured()) {
+        val hasValidPlan = evaluationRepository.isPlanValidForUser(currentUser.id, currentUser.email)
+        if (!hasValidPlan) {
             if (!session.hasCompletedIntro) {
                 navigateSafely(R.id.action_splash_to_intro)
             } else {

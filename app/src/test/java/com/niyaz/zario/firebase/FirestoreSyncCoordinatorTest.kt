@@ -84,6 +84,7 @@ class FirestoreSyncCoordinatorTest {
         coordinator.syncFromRemote(USER_ID, USER_EMAIL)
 
         coVerify { planPreferencesDataSource.restoreFromRemote(plan, 3) }
+        coVerify(exactly = 0) { userGateway.updatePlan(USER_ID, any()) }
         coVerify { evaluationHistoryDao.insertAll(match { it.size == 1 && it.first() == historyEntry }) }
         coVerify { hourlyUsageDao.insertAll(hourlyEntries) }
     }
@@ -111,6 +112,54 @@ class FirestoreSyncCoordinatorTest {
 
         coVerify(exactly = 0) { evaluationHistoryDao.insertAll(any()) }
         coVerify(exactly = 0) { hourlyUsageDao.insertAll(any()) }
+        coVerify(exactly = 0) { userGateway.updatePlan(USER_ID, any()) }
+    }
+
+    @Test
+    fun syncFromRemote_whenRemotePlanMissing_recoversPlanFromLatestCycle() = runTest {
+        coEvery { userGateway.fetchUserState(USER_ID) } returns FirestoreUserGateway.RemoteUserState(
+            plan = null,
+            goalSuccessStreak = 1,
+            pointsBalance = 120
+        )
+        val identifierCandidates = listOf(USER_ID, UserIdentity.fromEmail(USER_EMAIL))
+        coEvery { evaluationHistoryDao.latestEvaluationEndTimeForUser(identifierCandidates, USER_EMAIL) } returns null
+
+        val historyEntry = EvaluationHistoryEntry(
+            userId = USER_ID,
+            userEmail = USER_EMAIL,
+            planLabel = "Recovered",
+            goalTimeMs = 60_000L,
+            dailyAverageMs = 120_000L,
+            finalUsageMs = 90_000L,
+            evaluationStartTime = 100L,
+            evaluationEndTime = 200L,
+            metGoal = true,
+            pointsDelta = 0,
+            pointsBalanceAfter = 150
+        )
+        coEvery {
+            userGateway.fetchEvaluationCycles(
+                userId = USER_ID,
+                userEmail = USER_EMAIL,
+                afterTimestamp = null,
+                limit = any()
+            )
+        } returns listOf(FirestoreUserGateway.RemoteCycle(historyEntry, emptyList()))
+
+        coordinator.syncFromRemote(USER_ID, USER_EMAIL)
+
+        coVerify {
+            planPreferencesDataSource.restoreFromRemote(
+                match {
+                    it.goalTimeMs == 60_000L &&
+                        it.dailyAverageMs == 120_000L &&
+                        it.label == "Recovered"
+                },
+                1
+            )
+        }
+        coVerify { userGateway.updatePlan(USER_ID, any()) }
     }
 
     @Test

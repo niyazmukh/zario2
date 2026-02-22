@@ -44,6 +44,9 @@ class PlanPreferencesDataSource @Inject constructor(
 
     suspend fun savePlan(plan: ScreenTimePlan) {
         dataStore.edit { prefs ->
+            if (prefs[Keys.FIRST_PLAN_SET_AT] == null) {
+                prefs[Keys.FIRST_PLAN_SET_AT] = plan.planCreatedAt
+            }
             prefs[Keys.GOAL_TIME_MS] = plan.goalTimeMs
             prefs[Keys.DAILY_AVERAGE_MS] = plan.dailyAverageMs
             prefs[Keys.PLAN_LABEL] = plan.label
@@ -148,6 +151,9 @@ class PlanPreferencesDataSource @Inject constructor(
     suspend fun restoreFromRemote(plan: ScreenTimePlan?, goalSuccessStreak: Int?) {
         dataStore.edit { prefs ->
             if (plan != null) {
+                if (prefs[Keys.FIRST_PLAN_SET_AT] == null) {
+                    prefs[Keys.FIRST_PLAN_SET_AT] = plan.planCreatedAt
+                }
                 prefs[Keys.GOAL_TIME_MS] = plan.goalTimeMs
                 prefs[Keys.DAILY_AVERAGE_MS] = plan.dailyAverageMs
                 prefs[Keys.PLAN_LABEL] = plan.label
@@ -193,6 +199,7 @@ class PlanPreferencesDataSource @Inject constructor(
 
         return PlanPreferencesSnapshot(
             plan = plan,
+            firstPlanSetAt = this[Keys.FIRST_PLAN_SET_AT],
             usageThresholdReached = this[Keys.USAGE_THRESHOLD_REACHED] ?: 0,
             nextCycleStartTime = this[Keys.NEXT_CYCLE_START_TIME],
             evaluationCompleted = this[Keys.EVALUATION_COMPLETED] ?: false,
@@ -203,6 +210,7 @@ class PlanPreferencesDataSource @Inject constructor(
     }
 
     private object Keys {
+        val FIRST_PLAN_SET_AT = longPreferencesKey("first_plan_set_at")
         val GOAL_TIME_MS = longPreferencesKey("plan_goal_time_ms")
         val DAILY_AVERAGE_MS = longPreferencesKey("plan_daily_average_ms")
         val PLAN_LABEL = stringPreferencesKey("plan_label")
@@ -220,6 +228,7 @@ class PlanPreferencesDataSource @Inject constructor(
 
 data class PlanPreferencesSnapshot(
     val plan: ScreenTimePlan?,
+    val firstPlanSetAt: Long?,
     val usageThresholdReached: Int,
     val nextCycleStartTime: Long?,
     val evaluationCompleted: Boolean,
@@ -230,6 +239,7 @@ data class PlanPreferencesSnapshot(
     companion object {
         val EMPTY = PlanPreferencesSnapshot(
             plan = null,
+            firstPlanSetAt = null,
             usageThresholdReached = 0,
             nextCycleStartTime = null,
             evaluationCompleted = false,

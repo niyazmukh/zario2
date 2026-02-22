@@ -8,15 +8,25 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
 import com.google.android.material.snackbar.Snackbar
 import com.niyaz.zario.Constants
 import com.niyaz.zario.R
+import com.niyaz.zario.data.Condition
 import com.niyaz.zario.databinding.FragmentAboutBinding
+import com.niyaz.zario.repository.UserSessionRepository
+import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 
+@AndroidEntryPoint
 class AboutFragment : Fragment() {
 
     private var _binding: FragmentAboutBinding? = null
     private val binding get() = _binding!!
+
+    @Inject lateinit var sessionRepository: UserSessionRepository
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -30,6 +40,19 @@ class AboutFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         binding.btnContact.setOnClickListener { sendContactEmail() }
+        observeSession()
+    }
+
+    private fun observeSession() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            sessionRepository.session.collectLatest { session ->
+                val condition = session.user?.condition
+                val showPoints = condition != null && condition != Condition.BENCHMARK
+                binding.tvEvaluation.text =
+                    if (showPoints) getString(R.string.about_evaluation_process)
+                    else getString(R.string.about_evaluation_process_benchmark)
+            }
+        }
     }
 
     private fun sendContactEmail() {

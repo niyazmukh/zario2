@@ -86,35 +86,37 @@
                 android:alpha="0.87" />
 
             <!-- Short, condition-dependent note that appears under the target paragraph -->
-            <TextView
-                android:id="@+id/tv_goal_progress_subtext"
+        <TextView
+            android:id="@+id/tv_goal_progress_subtext"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="@dimen/spacing_xs"
-                android:text="@string/intro_point_progress_points"
+                android:text="@string/intro_point_progress_benchmark"
                 android:textAppearance="?attr/textAppearanceBodyMedium"
                 android:textColor="?attr/colorOnSurface"
                 android:alpha="0.87" />
 
             <!-- Section: How points work -->
-            <TextView
-                android:id="@+id/tv_point_progress_header"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/spacing_lg"
-                android:text="@string/intro_section_points"
-                android:textAppearance="?attr/textAppearanceTitleMedium"
-                android:textColor="?attr/colorPrimary" />
+        <TextView
+            android:id="@+id/tv_point_progress_header"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/spacing_lg"
+            android:text="@string/intro_section_points"
+            android:visibility="gone"
+            android:textAppearance="?attr/textAppearanceTitleMedium"
+            android:textColor="?attr/colorPrimary" />
 
-            <TextView
-                android:id="@+id/tv_point_progress"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/spacing_xs"
-                android:text="@string/intro_point_progress_points"
-                android:textAppearance="?attr/textAppearanceBodyMedium"
-                android:textColor="?attr/colorOnSurface"
-                android:alpha="0.87" />
+        <TextView
+            android:id="@+id/tv_point_progress"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/spacing_xs"
+            android:text="@string/intro_point_progress_points"
+            android:visibility="gone"
+            android:textAppearance="?attr/textAppearanceBodyMedium"
+            android:textColor="?attr/colorOnSurface"
+            android:alpha="0.87" />
         </LinearLayout>
 
         <com.google.android.material.checkbox.MaterialCheckBox

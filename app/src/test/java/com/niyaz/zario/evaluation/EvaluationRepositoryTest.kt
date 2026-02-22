@@ -14,12 +14,15 @@ import io.mockk.every
 import io.mockk.impl.annotations.MockK
 import io.mockk.just
 import io.mockk.runs
+import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -66,6 +69,7 @@ class EvaluationRepositoryTest {
         val plan = ScreenTimePlan(goalTimeMs = 10L, dailyAverageMs = 20L, evaluationStartTime = 1L)
         val snapshot = PlanPreferencesSnapshot(
             plan = plan,
+            firstPlanSetAt = null,
             usageThresholdReached = 0,
             nextCycleStartTime = null,
             evaluationCompleted = true,
@@ -102,5 +106,83 @@ class EvaluationRepositoryTest {
         repository.pruneOldHourlyUsage(threshold)
 
         coVerify { hourlyUsageDao.deleteUsageBefore(threshold) }
+    }
+
+    @Test
+    fun isPlanValidForUser_whenNoPlan_returnsFalse() = runTest {
+        coEvery { planPreferencesDataSource.latest() } returns PlanPreferencesSnapshot.EMPTY
+
+        val isValid = repository.isPlanValidForUser(userId = "u1", userEmail = "u1@example.com", nowMs = 10_000L)
+
+        assertFalse(isValid)
+    }
+
+    @Test
+    fun isPlanValidForUser_whenNoHistory_returnsTrue() = runTest {
+        val plan = ScreenTimePlan(goalTimeMs = 10L, dailyAverageMs = 20L, evaluationStartTime = 1L)
+        val snapshot = PlanPreferencesSnapshot(
+            plan = plan,
+            firstPlanSetAt = null,
+            usageThresholdReached = 0,
+            nextCycleStartTime = null,
+            evaluationCompleted = false,
+            evaluationCompletionTime = null,
+            feedbackViewed = true,
+            goalSuccessStreak = 0
+        )
+        coEvery { planPreferencesDataSource.latest() } returns snapshot
+        coEvery { historyDao.latestEvaluationEndTimeForUser(any(), any()) } returns null
+
+        val isValid = repository.isPlanValidForUser(userId = "u1", userEmail = "u1@example.com", nowMs = 10_000L)
+
+        assertTrue(isValid)
+    }
+
+    @Test
+    fun isPlanValidForUser_whenLatestCycleWithin14Days_returnsTrue() = runTest {
+        val plan = ScreenTimePlan(goalTimeMs = 10L, dailyAverageMs = 20L, evaluationStartTime = 1L)
+        val snapshot = PlanPreferencesSnapshot(
+            plan = plan,
+            firstPlanSetAt = null,
+            usageThresholdReached = 0,
+            nextCycleStartTime = null,
+            evaluationCompleted = false,
+            evaluationCompletionTime = null,
+            feedbackViewed = true,
+            goalSuccessStreak = 0
+        )
+        val now = TimeUnit.DAYS.toMillis(60)
+        val latestEnd = now - TimeUnit.DAYS.toMillis(13)
+
+        coEvery { planPreferencesDataSource.latest() } returns snapshot
+        coEvery { historyDao.latestEvaluationEndTimeForUser(any(), any()) } returns latestEnd
+
+        val isValid = repository.isPlanValidForUser(userId = "u1", userEmail = "u1@example.com", nowMs = now)
+
+        assertTrue(isValid)
+    }
+
+    @Test
+    fun isPlanValidForUser_whenLatestCycleOlderThan14Days_returnsFalse() = runTest {
+        val plan = ScreenTimePlan(goalTimeMs = 10L, dailyAverageMs = 20L, evaluationStartTime = 1L)
+        val snapshot = PlanPreferencesSnapshot(
+            plan = plan,
+            firstPlanSetAt = null,
+            usageThresholdReached = 0,
+            nextCycleStartTime = null,
+            evaluationCompleted = false,
+            evaluationCompletionTime = null,
+            feedbackViewed = true,
+            goalSuccessStreak = 0
+        )
+        val now = TimeUnit.DAYS.toMillis(60)
+        val latestEnd = now - TimeUnit.DAYS.toMillis(15)
+
+        coEvery { planPreferencesDataSource.latest() } returns snapshot
+        coEvery { historyDao.latestEvaluationEndTimeForUser(any(), any()) } returns latestEnd
+
+        val isValid = repository.isPlanValidForUser(userId = "u1", userEmail = "u1@example.com", nowMs = now)
+
+        assertFalse(isValid)
     }
 }

@@ -30,6 +30,8 @@ class RemoteSyncWorker @AssistedInject constructor(
     private val notifier: RemoteSyncNotifier
 ) : CoroutineWorker(appContext, params) {
 
+    private val failureNotificationGate = SyncFailureNotificationGate(threshold = FAILURE_THRESHOLD)
+
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         if (auth.currentUser == null) {
             Log.i(TAG, "No authenticated user – clearing pending remote sync workload")
@@ -191,18 +193,21 @@ class RemoteSyncWorker @AssistedInject constructor(
         return allSuccessful
     }
 
+    private fun notifyFailureOnce(attempts: Int, error: Throwable) {
+        if (!failureNotificationGate.shouldNotify(attempts)) return
+        notifier.notifyFailure(
+            applicationContext,
+            SyncFailureContext(attempts = attempts, lastError = error.message)
+        )
+    }
+
     private suspend fun updateCycleAttempts(entity: PendingCycleSyncEntity, error: Throwable) {
         val updated = entity.copy(
             attempts = entity.attempts + 1,
             lastAttemptAt = System.currentTimeMillis()
         )
         remoteSyncDao.updateCycle(updated)
-        if (updated.attempts >= FAILURE_THRESHOLD) {
-            notifier.notifyFailure(
-                applicationContext,
-                SyncFailureContext(attempts = updated.attempts, lastError = error.message)
-            )
-        }
+        notifyFailureOnce(updated.attempts, error)
     }
 
     private suspend fun updateHourlyAttempts(entity: PendingHourlySyncEntity, error: Throwable) {
@@ -211,12 +216,7 @@ class RemoteSyncWorker @AssistedInject constructor(
             lastAttemptAt = System.currentTimeMillis()
         )
         remoteSyncDao.updateHourly(updated)
-        if (updated.attempts >= FAILURE_THRESHOLD) {
-            notifier.notifyFailure(
-                applicationContext,
-                SyncFailureContext(attempts = updated.attempts, lastError = error.message)
-            )
-        }
+        notifyFailureOnce(updated.attempts, error)
     }
 
     private suspend fun updateAppInteractionAttempts(entity: PendingAppInteractionEntity, error: Throwable) {
@@ -225,12 +225,7 @@ class RemoteSyncWorker @AssistedInject constructor(
             lastAttemptAt = System.currentTimeMillis()
         )
         remoteSyncDao.updateAppInteraction(updated)
-        if (updated.attempts >= FAILURE_THRESHOLD) {
-            notifier.notifyFailure(
-                applicationContext,
-                SyncFailureContext(attempts = updated.attempts, lastError = error.message)
-            )
-        }
+        notifyFailureOnce(updated.attempts, error)
     }
 
     private suspend fun updateNotificationEventAttempts(entity: PendingNotificationEventEntity, error: Throwable) {
@@ -239,12 +234,7 @@ class RemoteSyncWorker @AssistedInject constructor(
             lastAttemptAt = System.currentTimeMillis()
         )
         remoteSyncDao.updateNotificationEvent(updated)
-        if (updated.attempts >= FAILURE_THRESHOLD) {
-            notifier.notifyFailure(
-                applicationContext,
-                SyncFailureContext(attempts = updated.attempts, lastError = error.message)
-            )
-        }
+        notifyFailureOnce(updated.attempts, error)
     }
 
     companion object {

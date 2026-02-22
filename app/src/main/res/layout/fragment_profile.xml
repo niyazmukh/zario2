@@ -148,10 +148,12 @@
                 android:orientation="horizontal">
 
                 <LinearLayout
+                    android:id="@+id/layout_points_summary"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:orientation="vertical">
+                    android:orientation="vertical"
+                    android:visibility="gone">
 
                     <com.google.android.material.textview.MaterialTextView
                         android:id="@+id/tv_points_label"

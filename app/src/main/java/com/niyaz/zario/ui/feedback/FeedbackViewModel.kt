@@ -30,7 +30,7 @@ data class FeedbackData(
     val goalStreak: Int,
     val planLabel: String,
     val isLoading: Boolean = false,
-    val showPointsChange: Boolean = true
+    val showPointsChange: Boolean = false
 )
 
 @HiltViewModel
@@ -45,7 +45,7 @@ class FeedbackViewModel @Inject constructor(
         goalStreak = 0,
         planLabel = "",
         isLoading = true,
-        showPointsChange = true
+        showPointsChange = false
     ))
     val feedbackData: StateFlow<FeedbackData> = _feedbackData.asStateFlow()
 
@@ -120,7 +120,7 @@ class FeedbackViewModel @Inject constructor(
             goalStreak = 0,
             planLabel = "",
             isLoading = false,
-            showPointsChange = true
+            showPointsChange = false
         )
     }
 

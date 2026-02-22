@@ -104,8 +104,11 @@ class UsageMonitoringWorker @AssistedInject constructor(
                 }
 
                 thresholdToNotify?.let { percent ->
-                    Log.i(TAG, "$percent% usage threshold reached – triggering notification")
-                    notificationDispatcher.notifyUsageThresholdReached(appContext, activePlan, currentUsage, percent)
+                    val suppressNotification = repository.shouldSuppressDayOneNotifications(evaluationStartTime)
+                    if (!suppressNotification) {
+                        Log.i(TAG, "$percent% usage threshold reached - triggering notification")
+                        notificationDispatcher.notifyUsageThresholdReached(appContext, activePlan, currentUsage, percent)
+                    }
                     repository.markUsageNotification(percent)
                 }
             }
@@ -157,8 +160,15 @@ class UsageMonitoringWorker @AssistedInject constructor(
             val retentionThreshold = System.currentTimeMillis() - TimeUnit.DAYS.toMillis(30)
             repository.pruneOldHourlyUsage(retentionThreshold)
 
-            // Send cycle completion notification immediately
-            notificationDispatcher.notifyCycleCompletionNow(appContext, plan, result)
+            val suppressCompletionNotification = repository.shouldSuppressDayOneNotifications(startTime)
+            if (!suppressCompletionNotification) {
+                notificationDispatcher.notifyCycleCompletionNow(appContext, plan, result)
+            }
+
+            val suppressFeedback = repository.shouldSuppressDayOneFeedback(startTime)
+            if (suppressFeedback) {
+                repository.discardPendingFeedback(force = true)
+            }
 
             val delayMs = (result.nextCycleStartTime - System.currentTimeMillis()).coerceAtLeast(0L)
             monitoringWorkScheduler.enqueueSchedulerWithDelayMillis(delayMs)

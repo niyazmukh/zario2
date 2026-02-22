@@ -16,6 +16,7 @@ import com.niyaz.zario.data.AuthResult
 import com.niyaz.zario.databinding.FragmentLoginBinding
 import com.niyaz.zario.permissions.PermissionsManager
 import com.niyaz.zario.core.evaluation.EvaluationRepository
+import com.niyaz.zario.repository.UserSessionRepository
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -30,6 +31,7 @@ class LoginFragment : Fragment() {
 
     @Inject lateinit var evaluationRepository: EvaluationRepository
     @Inject lateinit var permissionsManager: PermissionsManager
+    @Inject lateinit var sessionRepository: UserSessionRepository
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -116,15 +118,23 @@ class LoginFragment : Fragment() {
         val hasNotif = permissions.hasNotificationPermission
 
         viewLifecycleOwner.lifecycleScope.launch {
+            val session = sessionRepository.awaitSession()
+            val user = session.user
+            val hasValidPlan = if (user != null) {
+                evaluationRepository.isPlanValidForUser(user.id, user.email)
+            } else {
+                false
+            }
+
             when {
                 !(hasUsage && hasNotif) -> {
                     findNavController().navigate(R.id.action_login_to_permissions)
                 }
-                !evaluationRepository.hasPlanConfigured() -> {
+                !hasValidPlan -> {
                     findNavController().navigate(R.id.action_login_to_target)
                 }
                 else -> {
-                    // Target exists – expired or not, proceed to Intervention screen.
+                    // Plan exists and is within the 14-day window.
                     findNavController().navigate(R.id.action_login_to_intervention)
                 }
             }

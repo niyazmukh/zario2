@@ -138,10 +138,9 @@ class AuthViewModel @Inject constructor(
     }
 
     private fun validateReferral(referral: String): ValidationResult {
-        return when {
-            referral.isEmpty() -> ValidationResult(false, context.getString(R.string.error_empty_referral_number))
-            else -> ValidationResult(true)
-        }
+        // Referral number is optional.
+        if (referral.isBlank()) return ValidationResult(true)
+        return ValidationResult(true)
     }
 
     private fun validateEmail(email: String): ValidationResult {

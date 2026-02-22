@@ -8,6 +8,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.animation.OvershootInterpolator
 import androidx.activity.OnBackPressedCallback
+import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
@@ -129,6 +130,7 @@ class FeedbackFragment : Fragment() {
             animateGoalStatus(tvGoalStatus, feedbackData.goalMet)
 
             // Points Change
+            tvPointsChange.isVisible = feedbackData.showPointsChange
             if (feedbackData.showPointsChange) {
                 // For zero, show neutral copy; otherwise show earned/lost with sign formatting.
                 tvPointsChange.text = when {
@@ -155,13 +157,6 @@ class FeedbackFragment : Fragment() {
                     tvPointsChange.scaleY = 1f
                     tvPointsChange.alpha = 1f
                 }
-            } else {
-                tvPointsChange.text = getString(R.string.feedback_points_not_applicable)
-                val neutralColor = MaterialColors.getColor(tvPointsChange, com.google.android.material.R.attr.colorOnSurfaceVariant)
-                tvPointsChange.setTextColor(neutralColor)
-                tvPointsChange.scaleX = 1f
-                tvPointsChange.scaleY = 1f
-                tvPointsChange.alpha = 1f
             }
 
             // Goal Streak

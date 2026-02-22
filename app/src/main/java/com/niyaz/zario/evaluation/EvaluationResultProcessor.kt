@@ -1,7 +1,6 @@
 package com.niyaz.zario.core.evaluation
 
 import android.util.Log
-import com.niyaz.zario.Constants
 import com.niyaz.zario.data.Condition
 import com.niyaz.zario.data.ScreenTimePlan
 import com.niyaz.zario.core.evaluation.storage.HourlyUsageMapper
@@ -47,13 +46,16 @@ class EvaluationResultProcessor @Inject constructor(
         val goalTime = plan.goalTimeMs
         val metGoal = if (goalTime > 0) finalUsageMs <= goalTime else false
 
+        val suppressPoints = evaluationRepository.shouldSuppressDayOnePoints(evaluationStartTime)
+
         val condition = user?.condition ?: Condition.CONTROL
-        val delta = PointsCalculator.calculateDelta(
+        var delta = PointsCalculator.calculateDelta(
             condition = condition,
             metGoal = metGoal,
             flexibleReward = user?.flexibleReward,
             flexiblePenalty = user?.flexiblePenalty
         )
+        if (suppressPoints) delta = 0
         val newBalance = sessionRepository.adjustPoints(delta)
         Log.d(TAG, "Adjusted points by $delta – new balance: $newBalance")
 
@@ -86,24 +88,7 @@ class EvaluationResultProcessor @Inject constructor(
         }
 
         evaluationRepository.discardPendingFeedback(force = true)
-
-        if (metGoal) {
-            val streak = evaluationRepository.incrementGoalSuccessStreak()
-            if (streak >= STREAK_THRESHOLD) {
-                val reducedGoal = (goalTime * 9L) / 10L
-                val normalizedGoal = reducedGoal.coerceAtLeast(MIN_GOAL_TIME_MS)
-                if (normalizedGoal < goalTime) {
-                    evaluationRepository.updateGoalTime(normalizedGoal)
-                    evaluationRepository.resetGoalSuccessStreak()
-                    Log.i(TAG, "Goal reduced from $goalTime to $normalizedGoal after streak of $streak successes")
-                } else {
-                    Log.i(TAG, "Goal reduction skipped because minimum threshold reached ($goalTime ms)")
-                    evaluationRepository.resetGoalSuccessStreak()
-                }
-            }
-        } else {
-            evaluationRepository.resetGoalSuccessStreak()
-        }
+        // Goal update logic is intentionally disabled (no automatic reduction, no pending prompts).
 
         evaluationRepository.markEvaluationCompleted(evaluationEndTime)
 
@@ -124,7 +109,5 @@ class EvaluationResultProcessor @Inject constructor(
 
     companion object {
         private const val TAG = "EvaluationResultProcessor"
-        private const val STREAK_THRESHOLD = 3
-        private val MIN_GOAL_TIME_MS = 10L * Constants.MILLISECONDS_PER_SECOND * Constants.SECONDS_PER_MINUTE
     }
 }

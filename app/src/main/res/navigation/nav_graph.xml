@@ -169,6 +169,15 @@
             app:popUpTo="@id/permissionsFragment"
             app:popUpToInclusive="true" />
         <action
+            android:id="@+id/action_permissions_to_intervention"
+            app:destination="@id/interventionFragment"
+            app:enterAnim="@android:anim/slide_in_left"
+            app:exitAnim="@android:anim/slide_out_right"
+            app:popEnterAnim="@android:anim/slide_in_left"
+            app:popExitAnim="@android:anim/slide_out_right"
+            app:popUpTo="@id/permissionsFragment"
+            app:popUpToInclusive="true" />
+        <action
             android:id="@+id/action_permissions_to_flexstakes"
             app:destination="@id/flexStakesFragment"
             app:enterAnim="@android:anim/slide_in_left"

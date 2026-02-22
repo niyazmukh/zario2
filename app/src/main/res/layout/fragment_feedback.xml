@@ -61,6 +61,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/spacing_xxl"
             android:gravity="center"
+            android:visibility="gone"
             android:textAppearance="?attr/textAppearanceHeadlineMedium"
             android:textColor="?attr/colorOnSurface"
             app:layout_constraintEnd_toEndOf="parent"

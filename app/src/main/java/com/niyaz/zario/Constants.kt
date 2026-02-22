@@ -39,6 +39,9 @@ object Constants {
 	// Analysis windows
 	const val USAGE_ANALYSIS_DAYS = 7
 
+	// Goal / plan validity
+	const val GOAL_REUSE_WINDOW_DAYS = 14
+
 	// Points & incentives
 	// const val CONTROL_REWARD = 20
 	// const val CONTROL_PENALTY = 10

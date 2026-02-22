@@ -330,6 +330,7 @@
     <string name="about_research_purpose">Minutes is part of an ongoing research project exploring effective strategies to decrease daily screen time.</string>
     <string name="about_reduction_goal">The app guides you toward reducing your screen time through personalized usage limits and daily insights.</string>
     <string name="about_evaluation_process">Each evaluation cycle compares your usage to your usage limit. Stay within it to earn points; exceed it and you may lose some.</string>
+    <string name="about_evaluation_process_benchmark">Each evaluation cycle compares your usage to your usage limit.</string>
     <string name="about_privacy_statement">We don\'t collect, store, or exploit any personal information.</string>
     <string name="about_contact_button">Email the research team</string>
     <string name="about_contact_chooser_title">Contact Minutes team</string>

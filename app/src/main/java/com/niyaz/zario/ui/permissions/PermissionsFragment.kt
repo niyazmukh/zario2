@@ -88,13 +88,30 @@ class PermissionsFragment : Fragment() {
         binding.btnContinue.setOnClickListener {
             Log.d(TAG, "Continue button clicked")
             viewLifecycleOwner.lifecycleScope.launch {
-                val shouldShowIntro = !sessionRepository.hasCompletedIntro() &&
-                    !evaluationRepository.hasPlanConfigured()
-                val destination = if (shouldShowIntro) {
-                    R.id.action_permissions_to_intro
+                val session = sessionRepository.awaitSession()
+                val user = session.user
+                val hasValidPlan = if (user != null) {
+                    evaluationRepository.isPlanValidForUser(user.id, user.email)
                 } else {
-                    R.id.action_permissions_to_target
+                    false
                 }
+
+                val shouldShowIntro = !sessionRepository.hasCompletedIntro() && !hasValidPlan
+                val destination = when {
+                    shouldShowIntro -> R.id.action_permissions_to_intro
+                    hasValidPlan -> R.id.action_permissions_to_intervention
+                    else -> R.id.action_permissions_to_target
+                }
+                val destinationName = when (destination) {
+                    R.id.action_permissions_to_intro -> "intro"
+                    R.id.action_permissions_to_intervention -> "intervention"
+                    R.id.action_permissions_to_target -> "target"
+                    else -> destination.toString()
+                }
+                Log.d(
+                    TAG,
+                    "Continue navigation: hasValidPlan=$hasValidPlan, hasCompletedIntro=${sessionRepository.hasCompletedIntro()}, destination=$destinationName"
+                )
                 findNavController().navigateSafely(destination)
             }
         }
